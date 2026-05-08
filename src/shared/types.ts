@@ -33,9 +33,14 @@ export interface BlockerConfig {
 export interface BlockerStatus {
   active: boolean;
   serviceRunning: boolean;
+  /** True when the runtime tried to write the hosts file and was denied
+   *  (EPERM/EACCES). Drives the "needs admin / install service" UI banner. */
+  permissionDenied: boolean;
   currentlyBlocking: { groupId: string; groupName: string }[];
   nextChange: { atMinute: number; willBlock: string[] } | null;
   lastError: string | null;
+  /** Wall-clock ms of the last successful DNS flush, or null. */
+  lastFlushedAt: number | null;
 }
 
 export interface LogEntry {

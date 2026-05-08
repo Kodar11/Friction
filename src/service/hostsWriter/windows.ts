@@ -14,15 +14,32 @@ export interface ApplyArgs {
 }
 
 /**
+ * Thrown when reading/writing the hosts file fails because the current
+ * process lacks the privileges to do so. Caller logic uses this to render an
+ * actionable message instead of the raw EPERM/EACCES path.
+ */
+export class HostsPermissionError extends Error {
+  readonly cause: NodeJS.ErrnoException;
+  readonly target: string;
+  constructor(target: string, cause: NodeJS.ErrnoException) {
+    super(
+      `Permission denied editing the hosts file (${target}). ` +
+        `Run the app as administrator, or install the background service.`,
+    );
+    this.name = 'HostsPermissionError';
+    this.target = target;
+    this.cause = cause;
+  }
+}
+
+function isPermissionError(err: unknown): err is NodeJS.ErrnoException {
+  if (!err || typeof err !== 'object') return false;
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === 'EPERM' || code === 'EACCES';
+}
+
+/**
  * Apply (or remove) our managed region to/from the system hosts file.
- *
- * Strategy:
- *   1. Read current hosts.
- *   2. Compute desired bytes via spliceManaged.
- *   3. If unchanged, no-op (this keeps writes idempotent and avoids waking
- *      antivirus / file-watcher loops).
- *   4. Otherwise, write atomically: temp file in same dir + rename.
- *
  * Returns true if the file was modified, false if no change.
  */
 export async function applyHosts(args: ApplyArgs): Promise<boolean> {
@@ -60,29 +77,33 @@ async function readOrEmpty(target: string): Promise<string> {
     return await fs.readFile(target, 'utf8');
   } catch (err: any) {
     if (err.code === 'ENOENT') return '';
+    if (isPermissionError(err)) throw new HostsPermissionError(target, err);
     throw err;
   }
 }
 
 /**
- * Write atomically: temp file in same dir, then rename. On Windows the rename
- * is atomic only when source and destination are on the same volume, hence
- * "same directory".
+ * Atomic write: temp file in same dir, then rename. On Windows the rename is
+ * atomic only when source and destination are on the same volume, hence
+ * "same directory". Maps EPERM/EACCES to HostsPermissionError so the UI can
+ * render a useful CTA instead of a path-shaped error.
  */
 async function atomicWrite(target: string, contents: string): Promise<void> {
   const dir = path.dirname(target);
   const tmp = path.join(dir, `.focus-blocker.${process.pid}.${Date.now()}.tmp`);
-  await fs.writeFile(tmp, contents, { encoding: 'utf8' });
+  try {
+    await fs.writeFile(tmp, contents, { encoding: 'utf8' });
+  } catch (err: any) {
+    if (isPermissionError(err)) throw new HostsPermissionError(target, err);
+    throw err;
+  }
   try {
     await fs.rename(tmp, target);
-  } catch (err) {
-    // best-effort cleanup
-    try {
-      await fs.unlink(tmp);
-    } catch {}
+  } catch (err: any) {
+    try { await fs.unlink(tmp); } catch {}
+    if (isPermissionError(err)) throw new HostsPermissionError(target, err);
     throw err;
   }
 }
 
-// Avoid an unused-import lint when this file is consumed by tests.
 void os;

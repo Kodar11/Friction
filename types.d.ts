@@ -31,9 +31,11 @@ interface BlockerConfig {
 interface BlockerStatus {
   active: boolean;
   serviceRunning: boolean;
+  permissionDenied: boolean;
   currentlyBlocking: { groupId: string; groupName: string }[];
   nextChange: { atMinute: number; willBlock: string[] } | null;
   lastError: string | null;
+  lastFlushedAt: number | null;
 }
 
 interface LogEntry {
@@ -45,6 +47,15 @@ interface LogEntry {
 
 type FrameWindowAction = 'CLOSE' | 'MAXIMIZE' | 'MINIMIZE';
 
+interface ServiceState {
+  installed: boolean;
+  running: boolean;
+}
+
+interface AdminState {
+  isAdmin: boolean;
+}
+
 type EventPayloadMapping = {
   getConfig: BlockerConfig;
   saveConfig: { ok: boolean; error?: string };
@@ -55,6 +66,13 @@ type EventPayloadMapping = {
   setAutoLaunch: void;
   openLogFolder: void;
   getLogs: LogEntry[];
+  getAdminState: AdminState;
+  relaunchAsAdmin: { ok: boolean; error?: string };
+  flushDnsNow: { ok: boolean; error?: string };
+  openBrowserDnsPage: { ok: boolean; error?: string };
+  getServiceState: ServiceState;
+  installService: { ok: boolean; error?: string };
+  uninstallService: { ok: boolean; error?: string };
   'status-changed': BlockerStatus;
   'config-changed': BlockerConfig;
   'service-error': { message: string; timestamp: number };
@@ -74,6 +92,13 @@ interface Window {
     openLogFolder: () => Promise<void>;
     getLogs: (limit: number) => Promise<LogEntry[]>;
     setAutoLaunch: (enabled: boolean) => Promise<void>;
+    getAdminState: () => Promise<AdminState>;
+    relaunchAsAdmin: () => Promise<{ ok: boolean; error?: string }>;
+    flushDnsNow: () => Promise<{ ok: boolean; error?: string }>;
+    openBrowserDnsPage: () => Promise<{ ok: boolean; error?: string }>;
+    getServiceState: () => Promise<ServiceState>;
+    installService: () => Promise<{ ok: boolean; error?: string }>;
+    uninstallService: () => Promise<{ ok: boolean; error?: string }>;
     onStatusChanged: (cb: (status: BlockerStatus) => void) => UnsubscribeFunction;
     onConfigChanged: (cb: (config: BlockerConfig) => void) => UnsubscribeFunction;
     onServiceError: (cb: (err: { message: string; timestamp: number }) => void) => UnsubscribeFunction;

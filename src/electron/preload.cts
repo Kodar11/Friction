@@ -10,6 +10,13 @@ electron.contextBridge.exposeInMainWorld('blocker', {
   openLogFolder: () => ipcInvoke('openLogFolder'),
   getLogs: (limit: number) => ipcInvokeWith('getLogs', limit),
   setAutoLaunch: (enabled: boolean) => ipcInvokeWith('setAutoLaunch', enabled),
+  getAdminState: () => ipcInvoke('getAdminState'),
+  relaunchAsAdmin: () => ipcInvoke('relaunchAsAdmin'),
+  flushDnsNow: () => ipcInvoke('flushDnsNow'),
+  openBrowserDnsPage: () => ipcInvoke('openBrowserDnsPage'),
+  getServiceState: () => ipcInvoke('getServiceState'),
+  installService: () => ipcInvoke('installService'),
+  uninstallService: () => ipcInvoke('uninstallService'),
   onStatusChanged: (cb: (status: BlockerStatus) => void) =>
     ipcOn('status-changed', cb),
   onConfigChanged: (cb: (config: BlockerConfig) => void) =>

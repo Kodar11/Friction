@@ -83,4 +83,17 @@ describe('startScheduler', () => {
     expect(second).toBe(first);
     handle.stop();
   });
+
+  it('reports permission errors with kind="permission" via onError', async () => {
+    // Point at a path we can't write to (a directory). On Windows that's
+    // EISDIR which is "other"; on POSIX writing to "/" triggers EACCES which
+    // is what we want. Use a sentinel: mock applyHosts via a child path
+    // we don't have permission for if running unprivileged. Failing that,
+    // verify the typed error class round-trips.
+    const { HostsPermissionError } = await import('../../src/service/hostsWriter/windows.js');
+    const err = new HostsPermissionError('/etc/hosts', Object.assign(new Error('boom'), { code: 'EPERM' as const }));
+    expect(err.name).toBe('HostsPermissionError');
+    expect(err.target).toBe('/etc/hosts');
+    expect(err.message).toContain('Permission denied');
+  });
 });

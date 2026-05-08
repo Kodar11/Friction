@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, AlertCircle, Layers, CalendarClock, Power, ShieldCheck, ShieldOff } from 'lucide-react';
+import { ArrowRight, AlertCircle, ExternalLink, Info, Layers, CalendarClock, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { useStatus } from '../hooks/useStatus';
+import { useAdminState } from '../hooks/useAdminState';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Timeline } from '../components/Timeline';
 import type { Route } from '../components/Sidebar';
@@ -9,6 +10,7 @@ import type { Route } from '../components/Sidebar';
 export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
   const { config } = useConfig();
   const status = useStatus();
+  const adminState = useAdminState();
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [nowMinute, setNowMinute] = useState(currentMinute);
@@ -55,6 +57,8 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
         )}
       </div>
 
+      {adminState && !adminState.isAdmin && <AdminRelaunchBanner />}
+
       {/* Status hero */}
       <section className="card overflow-hidden">
         <div className="card-section">
@@ -73,12 +77,13 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
                     : 'Activate to start enforcing your schedule.'}
               </div>
               <NextChange status={status} />
+              <FlushIndicator status={status} />
             </div>
             <ServiceBadge running={!!status?.serviceRunning} />
           </div>
         </div>
 
-        {status?.lastError && (
+        {status?.lastError && !status.permissionDenied && (
           <>
             <div className="divider" />
             <div className="px-5 py-3 flex items-start gap-2 text-[12.5px]" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
@@ -87,6 +92,8 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
             </div>
           </>
         )}
+
+        {isActive && inWindow && <BrowserCacheHint />}
       </section>
 
       {/* Today's schedule preview */}
@@ -174,6 +181,137 @@ function StatusIcon(props: { active: boolean; inWindow: boolean }) {
   );
 }
 
+function BrowserCacheHint() {
+  const [flushBusy, setFlushBusy] = useState(false);
+  const [flushFlash, setFlushFlash] = useState<'ok' | 'fail' | null>(null);
+  const [browserBusy, setBrowserBusy] = useState(false);
+
+  const flush = async () => {
+    setFlushBusy(true);
+    setFlushFlash(null);
+    try {
+      const r = await window.blocker.flushDnsNow();
+      setFlushFlash(r.ok ? 'ok' : 'fail');
+      setTimeout(() => setFlushFlash(null), 1800);
+    } finally {
+      setFlushBusy(false);
+    }
+  };
+
+  const openBrowserDns = async () => {
+    setBrowserBusy(true);
+    try {
+      await window.blocker.openBrowserDnsPage();
+    } finally {
+      setBrowserBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="divider" />
+      <div
+        className="px-5 py-3 text-[12.5px]"
+        style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+      >
+        <div className="flex items-start gap-2">
+          <Info size={14} className="mt-0.5 shrink-0" />
+          <div className="flex-1 leading-relaxed">
+            Browsers keep their own DNS &amp; HTTP caches. After flushing the OS, click
+            <strong className="text-default"> Clear browser cache</strong> below to open
+            <code className="kbd ml-1">chrome://net-internals/#dns</code> in your default
+            browser — then click <em>"Clear host cache"</em> there. Or just hard-refresh
+            the tab with <span className="kbd">Ctrl + Shift + R</span>.
+          </div>
+        </div>
+        <div className="mt-2.5 ml-6 flex flex-wrap gap-1.5">
+          <button onClick={flush} disabled={flushBusy} className="btn btn-ghost">
+            {flushBusy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            {flushFlash === 'ok' ? 'Flushed' : flushFlash === 'fail' ? 'Failed' : 'Flush OS DNS'}
+          </button>
+          <button onClick={openBrowserDns} disabled={browserBusy} className="btn btn-ghost">
+            {browserBusy ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
+            Clear browser cache
+          </button>
+        </div>
+        <div className="mt-2 ml-6 text-[11.5px] text-faint leading-relaxed">
+          Heads up: Brave / Chrome / Edge can use DNS-over-HTTPS, which bypasses the hosts file.
+          If a site still loads after both flushes, disable DoH in browser settings.
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AdminRelaunchBanner() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onClick = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await window.blocker.relaunchAsAdmin();
+      if (!r.ok) {
+        setError(r.error ?? 'Failed to elevate.');
+        setBusy(false);
+      }
+      // On success, the elevated instance is starting and we'll quit shortly.
+      // Leaving busy=true so the button stays in its loading state.
+    } catch (err: any) {
+      setError(err?.message ?? String(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section
+      className="card overflow-hidden"
+      style={{
+        background: 'var(--warning-soft)',
+        borderColor: 'rgba(217, 115, 13, 0.25)',
+      }}
+    >
+      <div className="card-section flex items-start gap-3">
+        <div
+          className="h-9 w-9 grid place-items-center rounded-lg shrink-0"
+          style={{ background: 'var(--bg)', color: 'var(--warning)' }}
+        >
+          <ShieldAlert size={18} />
+        </div>
+        <div className="flex-1">
+          <div className="text-[14.5px] font-semibold" style={{ color: 'var(--warning)' }}>
+            Admin permission needed to enable blocking
+          </div>
+          <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: 'var(--warning)', opacity: 0.85 }}>
+            Focus Blocker writes to <code className="kbd">C:\Windows\System32\drivers\etc\hosts</code>,
+            which Windows protects. Click below to relaunch the app with admin rights — one UAC prompt and
+            blocking just works.
+          </p>
+          {error && (
+            <p className="text-[12px] mt-2" style={{ color: 'var(--danger)' }}>
+              {error}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={onClick}
+          disabled={busy}
+          className="btn"
+          style={{
+            background: 'var(--warning)',
+            color: '#fff',
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+          {busy ? 'Relaunching…' : 'Restart with admin'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function ServiceBadge(props: { running: boolean }) {
   return (
     <div
@@ -189,6 +327,23 @@ function ServiceBadge(props: { running: boolean }) {
         style={{ background: props.running ? 'var(--success)' : 'var(--warning)' }}
       />
       {props.running ? 'Service running' : 'Service idle'}
+    </div>
+  );
+}
+
+function FlushIndicator(props: { status: BlockerStatus | null }) {
+  const ts = props.status?.lastFlushedAt ?? null;
+  if (!ts) return null;
+  const ago = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  const label =
+    ago < 5 ? 'just now'
+    : ago < 60 ? `${ago}s ago`
+    : ago < 3600 ? `${Math.floor(ago / 60)}m ago`
+    : `${Math.floor(ago / 3600)}h ago`;
+  return (
+    <div className="text-[12px] text-faint mt-0.5 inline-flex items-center gap-1.5">
+      <RefreshCw size={11} />
+      DNS flushed {label}
     </div>
   );
 }

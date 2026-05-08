@@ -49,8 +49,13 @@ export async function startBlockingRuntime(opts: BlockingRuntimeOpts): Promise<B
       heartbeat.setLastError(null);
       heartbeat.write(ev);
     },
-    onError: (message) => {
-      heartbeat.setLastError(message);
+    onError: ({ kind, message }) => {
+      heartbeat.setLastError(message, kind);
+      heartbeat.write(scheduler?.lastEvaluation() ?? null);
+    },
+    onFlushed: (at) => {
+      heartbeat.markFlushed(at);
+      heartbeat.write(scheduler?.lastEvaluation() ?? null);
     },
   });
 

@@ -3,7 +3,12 @@ import { getUIPath } from './pathResolver.js';
 import { pathToFileURL } from 'url';
 
 export function isDev(): boolean {
-  return process.env.NODE_ENV === 'development';
+  // NODE_ENV is the primary signal (set by `cross-env` in `npm run dev`),
+  // but UAC elevation doesn't reliably forward env vars to the new process,
+  // so we also accept an explicit `--dev` argv flag that the elevated
+  // relaunch path adds. Without this, the admin instance flips to
+  // file://dist-react which is empty/stale → black window.
+  return process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
 }
 
 /**

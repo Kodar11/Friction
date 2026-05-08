@@ -17,7 +17,7 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src"],
-  "exclude": ["src/electron"],
+  "include": ["src/ui", "src/shared", "types.d.ts"],
+  "exclude": ["src/electron", "src/service"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

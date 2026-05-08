@@ -1,68 +1,83 @@
-import { app, BrowserWindow, Menu } from 'electron';
-import { ipcMainHandle, ipcMainOn, isDev } from './util.js';
-import { getStaticData, pollResources } from './resourceManager.js';
+import { app, BrowserWindow } from 'electron';
+import { isDev } from './util.js';
 import { getPreloadPath, getUIPath } from './pathResolver.js';
 import { createTray } from './tray.js';
-import { createMenu } from './menu.js';
+import { ConfigStore } from './configStore.js';
+import { Logger } from '../service/logger.js';
+import { registerIpc } from './ipc.js';
+import { startBlockingRuntime, type BlockingRuntime } from '../service/runtime.js';
 
-app.on('ready', () => {
-  const mainWindow = new BrowserWindow({
+let mainWindow: BrowserWindow | null = null;
+let blockingRuntime: BlockingRuntime | null = null;
+
+app.on('ready', async () => {
+  const userData = app.getPath('userData');
+  const logger = new Logger({ dir: userData, source: 'app' });
+  const store = new ConfigStore(userData);
+
+  // Ensure config exists on first run.
+  const config = await store.readOrInitDefault();
+
+  if (isDev()) {
+    blockingRuntime = await startBlockingRuntime({
+      dir: userData,
+      logger,
+      configPath: store.filePath(),
+      hostsPath: process.env.FOCUS_BLOCKER_HOSTS_PATH,
+    });
+    await blockingRuntime.apply(config);
+  }
+
+  mainWindow = new BrowserWindow({
+    width: 1100,
+    height: 760,
     webPreferences: {
       preload: getPreloadPath(),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
-    // disables default system frame (dont do this if you want a proper working menu bar)
     frame: false,
+    backgroundColor: '#020617',
   });
+
   if (isDev()) {
     mainWindow.loadURL('http://localhost:5123');
   } else {
     mainWindow.loadFile(getUIPath());
   }
 
-  pollResources(mainWindow);
-
-  ipcMainHandle('getStaticData', () => {
-    return getStaticData();
+  registerIpc({
+    store,
+    logger,
+    getMainWindow: () => mainWindow,
+    onConfigChanged: async (cfg) => {
+      await blockingRuntime?.apply(cfg);
+    },
   });
-
-  ipcMainOn('sendFrameAction', (payload) => {
-    switch (payload) {
-      case 'CLOSE':
-        mainWindow.close();
-        break;
-      case 'MAXIMIZE':
-        mainWindow.maximize();
-        break;
-      case 'MINIMIZE':
-        mainWindow.minimize();
-        break;
-    }
-  });
-
   createTray(mainWindow);
   handleCloseEvents(mainWindow);
-  createMenu(mainWindow);
+  logger.info('App ready.');
+
+  app.on('before-quit', () => {
+    void blockingRuntime?.stop();
+  });
 });
 
-function handleCloseEvents(mainWindow: BrowserWindow) {
+function handleCloseEvents(win: BrowserWindow) {
   let willClose = false;
 
-  mainWindow.on('close', (e) => {
-    if (willClose) {
-      return;
-    }
+  win.on('close', (e) => {
+    if (willClose) return;
     e.preventDefault();
-    mainWindow.hide();
-    if (app.dock) {
-      app.dock.hide();
-    }
+    win.hide();
+    if (app.dock) app.dock.hide();
   });
 
   app.on('before-quit', () => {
     willClose = true;
   });
 
-  mainWindow.on('show', () => {
+  win.on('show', () => {
     willClose = false;
   });
 }

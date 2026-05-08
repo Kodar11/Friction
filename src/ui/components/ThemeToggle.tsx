@@ -1,18 +1,40 @@
-import { useThemeStore } from '../store/themeStore';
+import { Monitor, Moon, Sun } from 'lucide-react';
+import { useThemeStore, type Theme } from '../store/themeStore';
+
+const ITEMS: { id: Theme; Icon: typeof Sun; label: string }[] = [
+  { id: 'system', Icon: Monitor, label: 'System theme' },
+  { id: 'light', Icon: Sun, label: 'Light theme' },
+  { id: 'dark', Icon: Moon, label: 'Dark theme' },
+];
 
 export function ThemeToggle() {
-  const theme = useThemeStore((state) => state.theme);
-  const toggleTheme = useThemeStore((state) => state.toggleTheme);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
 
   return (
-    <button
-      className="rounded-full px-3 py-2 text-sm font-medium transition theme-button-hover"
-      style={{ backgroundColor: 'var(--button)', color: 'var(--text)' }}
-      onClick={toggleTheme}
-      aria-label="Toggle theme"
-      type="button"
+    <div
+      className="inline-flex items-center gap-0.5 rounded-md p-0.5"
+      style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
     >
-      {theme === 'dark' ? '🌞 Light' : '🌙 Dark'}
-    </button>
+      {ITEMS.map(({ id, Icon, label }) => {
+        const selected = theme === id;
+        return (
+          <button
+            key={id}
+            onClick={() => setTheme(id)}
+            aria-label={label}
+            title={label}
+            className="h-7 w-8 inline-flex items-center justify-center rounded-[5px] transition-colors"
+            style={{
+              color: selected ? 'var(--text)' : 'var(--text-muted)',
+              background: selected ? 'var(--bg)' : 'transparent',
+              boxShadow: selected ? 'var(--shadow-sm)' : 'none',
+            }}
+          >
+            <Icon size={14} strokeWidth={1.75} />
+          </button>
+        );
+      })}
+    </div>
   );
 }

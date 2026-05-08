@@ -14,4 +14,8 @@ export default defineConfig({
     port: 5123,
     strictPort: true,
   },
-});
+  test: {
+    include: ['tests/**/*.test.ts'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist-electron/**', 'dist-react/**'],
+  },
+} as any);

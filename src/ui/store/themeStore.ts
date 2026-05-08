@@ -1,15 +1,18 @@
 import { create } from 'zustand';
 
-type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'system';
 
 interface ThemeState {
   theme: Theme;
-  toggleTheme: () => void;
+  cycleTheme: () => void;
   setTheme: (theme: Theme) => void;
 }
 
+const ORDER: Theme[] = ['system', 'light', 'dark'];
+
 export const useThemeStore = create<ThemeState>((set) => ({
-  theme: 'dark',
-  toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
+  theme: 'system',
+  cycleTheme: () =>
+    set((state) => ({ theme: ORDER[(ORDER.indexOf(state.theme) + 1) % ORDER.length] })),
   setTheme: (theme) => set({ theme }),
 }));

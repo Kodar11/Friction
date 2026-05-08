@@ -1,24 +1,93 @@
+@import "tailwindcss";
+
 :root {
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 24px;
   font-weight: 400;
-
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+
+  --bg: #020617;
+  --surface: #0f172a;
+  --surface-alt: rgba(15, 23, 42, 0.7);
+  --header: rgba(15, 23, 42, 0.95);
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --button: rgba(148, 163, 184, 0.12);
+  --button-hover: rgba(148, 163, 184, 0.18);
+  --border: rgba(148, 163, 184, 0.12);
+}
+
+[data-theme='light'] {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-alt: rgba(255, 255, 255, 0.9);
+  --header: rgba(255, 255, 255, 0.92);
+  --text: #0f172a;
+  --muted: #64748b;
+  --button: rgba(15, 23, 42, 0.06);
+  --button-hover: rgba(15, 23, 42, 0.1);
+  --border: rgba(15, 23, 42, 0.08);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
 }
 
 body {
   margin: 0;
+  background-color: var(--bg);
+  color: var(--text);
 }
 
 button {
   all: unset;
+  cursor: pointer;
+}
+
+.theme-bg {
+  background-color: var(--bg);
+}
+
+.theme-text {
+  color: var(--text);
+}
+
+.theme-surface {
+  background-color: var(--surface);
+}
+
+.theme-surface-alt {
+  background-color: var(--surface-alt);
+}
+
+.theme-header {
+  background-color: var(--header);
+}
+
+.theme-muted {
+  color: var(--muted);
+}
+
+.theme-button {
+  background-color: var(--button);
+}
+
+.theme-button-hover:hover {
+  background-color: var(--button-hover);
+}
+
+.app-header {
+  -webkit-app-region: drag;
+}
+
+.app-header-buttons {
+  -webkit-app-region: no-drag;
 }

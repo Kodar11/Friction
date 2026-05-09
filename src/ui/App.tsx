@@ -22,7 +22,7 @@ function App() {
   const [route, setRoute] = useState<Route>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { config } = useConfig();
-  const stats = useStats();
+  const { stats } = useStats();
   const { pending: pendingMilestone, acknowledge: acknowledgeMilestone } = useMilestone(
     stats?.streak.current,
   );

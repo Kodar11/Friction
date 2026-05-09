@@ -1,56 +1,50 @@
 import { useMemo, useState } from 'react';
 
 interface Props {
-  cells: HeatmapCell[]; // oldest first, exactly 90 days
+  cells: HeatmapCell[]; // oldest first, up to 365 days
 }
 
+const GAP = 3;
+const SIZE = 11;
+
 /**
- * GitHub-style 13-week × 7-day heatmap, sized to fit the Stats card.
+ * GitHub Contributions-style heatmap.
  *
- * Data shape: an array of `{ date, intensity }` cells, oldest first.
- * Layout: cells flow column-major — week-by-week from left to right, with
- * Sunday at the top of each column. We pad the leading column so the first
- * day in the grid lines up with its real day-of-week.
- *
- * Intensity buckets 0..4 map to a five-stop ramp; we use the accent variable
- * for the hot end so it adapts to theme.
+ * - Full year (365 days)
+ * - Column-major: each column is one week (Sun→Sat)
+ * - Day labels on left: Mon, Wed, Fri only
+ * - Month labels above the first column of each month
+ * - Horizontal scroll with native scrollbar (overflow-x-auto)
  */
 export function Heatmap({ cells }: Props) {
   const [hover, setHover] = useState<HeatmapCell | null>(null);
 
-  // Build a column-major matrix. Pad the first week so day-of-week lines up.
   const { columns, monthLabels } = useMemo(() => buildMatrix(cells), [cells]);
+
+  if (columns.length === 0) {
+    return (
+      <div className="text-[12px] text-muted py-4">
+        Not enough data yet.
+      </div>
+    );
+  }
+
+  const colWidth = SIZE + GAP;
+  const gridWidth = columns.length * colWidth - GAP;
 
   return (
     <div className="select-none">
-      <div className="flex items-end gap-2">
-        {/* Day labels on the left (Mon/Wed/Fri) */}
-        <div className="flex flex-col gap-[3px] pr-1 text-[10px] text-faint" style={{ height: 7 * 14 + 6 * 3 }}>
-          {['', 'Mon', '', 'Wed', '', 'Fri', ''].map((label, i) => (
-            <div
-              key={i}
-              className="h-[14px] grid items-center"
-              style={{ visibility: label ? 'visible' : 'hidden' }}
-            >
-              {label}
-            </div>
-          ))}
-        </div>
-
-        {/* Grid */}
-        <div className="flex flex-col gap-1">
-          <div
-            className="grid gap-[3px] text-[10px] text-faint relative"
-            style={{ gridTemplateColumns: `repeat(${columns.length}, 14px)` }}
-          >
+      {/* Scrollable area */}
+      <div className="overflow-x-auto pb-2" style={{ scrollbarWidth: 'thin' }}>
+        <div className="inline-block min-w-full">
+          {/* Month label row */}
+          <div className="flex" style={{ paddingLeft: 30 }}>
             {monthLabels.map((m, i) => (
               <div
                 key={i}
-                className="absolute"
+                className="text-[10px] text-faint whitespace-nowrap"
                 style={{
-                  left: i * (14 + 3),
-                  top: -16,
-                  width: m.span * (14 + 3),
+                  width: colWidth,
                   visibility: m.label ? 'visible' : 'hidden',
                 }}
               >
@@ -59,43 +53,68 @@ export function Heatmap({ cells }: Props) {
             ))}
           </div>
 
-          <div
-            className="grid gap-[3px]"
-            style={{ gridTemplateColumns: `repeat(${columns.length}, 14px)` }}
-          >
-            {columns.map((col, ci) => (
-              <div key={ci} className="grid gap-[3px]" style={{ gridTemplateRows: 'repeat(7, 14px)' }}>
-                {col.map((cell, ri) =>
-                  cell ? (
+          {/* Grid + day labels */}
+          <div className="flex gap-1">
+            {/* Day labels */}
+            <div className="flex flex-col text-[10px] text-faint pr-1" style={{ width: 28 }}>
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                <div
+                  key={day}
+                  className="flex items-center"
+                  style={{ height: SIZE, visibility: [1, 3, 5].includes(i) ? 'visible' : 'hidden' }}
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Cell grid */}
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: `repeat(${columns.length}, ${SIZE}px)`,
+                gridTemplateRows: `repeat(7, ${SIZE}px)`,
+                gap: GAP,
+                width: gridWidth,
+              }}
+            >
+              {columns.map((col, ci) =>
+                col.map((cell, ri) => {
+                  const key = `${ci}-${ri}`;
+                  if (!cell) {
+                    return <div key={key} style={{ width: SIZE, height: SIZE }} />;
+                  }
+                  return (
                     <div
-                      key={ri}
+                      key={key}
                       onMouseEnter={() => setHover(cell)}
                       onMouseLeave={() => setHover(null)}
-                      className="h-[14px] w-[14px] rounded-[3px] transition-[opacity]"
+                      className="rounded-[2px] transition-opacity"
                       style={{
+                        width: SIZE,
+                        height: SIZE,
                         background: bucketColor(cell.intensity),
-                        outline: '1px solid var(--border)',
+                        outline: '1px solid var(--heatmap-border)',
                         outlineOffset: -1,
                       }}
                       title={`${cell.date} · ${labelFor(cell.intensity)}`}
                     />
-                  ) : (
-                    <div key={ri} className="h-[14px] w-[14px]" />
-                  ),
-                )}
-              </div>
-            ))}
+                  );
+                }),
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-3 text-[10.5px] text-faint">
+      {/* Footer */}
+      <div className="mt-2 flex items-center gap-3 text-[10.5px] text-faint">
         {hover ? (
           <span className="tabular-nums">
             {formatDate(hover.date)} — {labelFor(hover.intensity)}
           </span>
         ) : (
-          <span>Last 90 days</span>
+          <span>Last year</span>
         )}
         <div className="flex-1" />
         <span>Less</span>
@@ -103,8 +122,14 @@ export function Heatmap({ cells }: Props) {
           {[0, 1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="h-[10px] w-[10px] rounded-[2px]"
-              style={{ background: bucketColor(i as 0 | 1 | 2 | 3 | 4), outline: '1px solid var(--border)', outlineOffset: -1 }}
+              className="rounded-[2px]"
+              style={{
+                width: 10,
+                height: 10,
+                background: bucketColor(i as 0 | 1 | 2 | 3 | 4),
+                outline: '1px solid var(--border)',
+                outlineOffset: -1,
+              }}
             />
           ))}
         </div>
@@ -115,19 +140,12 @@ export function Heatmap({ cells }: Props) {
 }
 
 function bucketColor(level: 0 | 1 | 2 | 3 | 4): string {
-  if (level === 0) return 'var(--bg-secondary)';
-  // Build a soft → vivid ramp using accent at varying alphas. Alpha lets us
-  // adapt to either theme without hard-coding light/dark colors.
-  const alpha = [0, 0.18, 0.4, 0.65, 0.9][level];
-  // Use rgba on the accent — pulled via getComputedStyle would be ideal, but
-  // the CSS variable is already accent-coloured. Fallback to a fixed accent
-  // matching the design system.
-  return `color-mix(in oklab, var(--accent) ${Math.round(alpha * 100)}%, var(--bg-secondary))`;
+  return `var(--heatmap-${level})`;
 }
 
 function labelFor(level: 0 | 1 | 2 | 3 | 4): string {
   switch (level) {
-    case 0: return 'no scheduled focus or no adherence';
+    case 0: return 'no scheduled focus';
     case 1: return 'partial — under 25%';
     case 2: return 'partial — 25–50%';
     case 3: return 'partial — 50–80%';
@@ -136,13 +154,14 @@ function labelFor(level: 0 | 1 | 2 | 3 | 4): string {
 }
 
 function formatDate(iso: string): string {
-  // iso = YYYY-MM-DD
   const [y, m, d] = iso.split('-').map((n) => parseInt(n, 10));
   const date = new Date(y, m - 1, d);
   return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-interface MonthLabel { label: string; span: number }
+interface MonthLabel {
+  label: string;
+}
 
 function buildMatrix(cells: HeatmapCell[]): {
   columns: (HeatmapCell | null)[][];
@@ -152,70 +171,43 @@ function buildMatrix(cells: HeatmapCell[]): {
     return { columns: [], monthLabels: [] };
   }
 
-  // Day-of-week of first cell determines leading padding.
   const first = parseISO(cells[0].date);
-  const leadingPad = first.getDay(); // Sunday=0 fits row 0
+  const leadingPad = first.getDay(); // Sunday = 0
 
-  // Build a flat list of (cell-or-null) where index 0 = oldest pad.
+  // Flat list: null-padded start, then all cells
   const flat: (HeatmapCell | null)[] = [];
   for (let i = 0; i < leadingPad; i++) flat.push(null);
   for (const c of cells) flat.push(c);
 
-  // Pack into columns of 7.
+  // Pad trailing to complete the final week
+  while (flat.length % 7 !== 0) flat.push(null);
+
+  // Pack into columns of 7 (each column = one week, Sun→Sat)
   const columns: (HeatmapCell | null)[][] = [];
   for (let i = 0; i < flat.length; i += 7) {
     columns.push(flat.slice(i, i + 7));
   }
-  // Pad the trailing column to 7.
-  if (columns.length > 0) {
-    const last = columns[columns.length - 1];
-    while (last.length < 7) last.push(null);
-  }
 
-  // Month labels — show the month name on the column where the month changes.
+  // Month labels: label the first column of each month
   const monthLabels: MonthLabel[] = [];
-  let prevMonth = -1;
-  let curr: MonthLabel | null = null;
+  let lastMonth = '';
   for (let ci = 0; ci < columns.length; ci++) {
-    // Pick a non-null cell in this column
-    const cell = columns[ci].find((c) => c !== null) ?? null;
+    const col = columns[ci];
+    const cell = col.find((c) => c !== null) ?? null;
     if (!cell) {
-      monthLabels.push({ label: '', span: 1 });
-      continue;
-    }
-    const d = parseISO(cell.date);
-    const m = d.getMonth();
-    if (m !== prevMonth) {
-      if (curr) monthLabels.push(curr);
-      curr = { label: d.toLocaleDateString(undefined, { month: 'short' }), span: 1 };
-      prevMonth = m;
-    } else {
-      if (curr) curr.span += 1;
-      monthLabels.push({ label: '', span: 1 });
-      continue;
-    }
-    monthLabels.push({ label: '', span: 1 });
-  }
-  // Replace the placeholder labels at the start of each month run.
-  // Walk again to insert labels at run-start indices.
-  const result: MonthLabel[] = [];
-  let lastLabel = '';
-  for (let ci = 0; ci < columns.length; ci++) {
-    const cell = columns[ci].find((c) => c !== null) ?? null;
-    if (!cell) {
-      result.push({ label: '', span: 1 });
+      monthLabels.push({ label: '' });
       continue;
     }
     const monthName = parseISO(cell.date).toLocaleDateString(undefined, { month: 'short' });
-    if (monthName !== lastLabel) {
-      result.push({ label: monthName, span: 1 });
-      lastLabel = monthName;
+    if (monthName !== lastMonth) {
+      monthLabels.push({ label: monthName });
+      lastMonth = monthName;
     } else {
-      result.push({ label: '', span: 1 });
+      monthLabels.push({ label: '' });
     }
   }
 
-  return { columns, monthLabels: result };
+  return { columns, monthLabels };
 }
 
 function parseISO(iso: string): Date {

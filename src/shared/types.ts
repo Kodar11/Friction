@@ -91,6 +91,9 @@ export interface BlockerConfigV1 {
 export interface BlockerStatus {
   active: boolean;
   serviceRunning: boolean;
+  serviceOutOfDate: boolean;
+  serviceVersion: string | null;
+  appVersion: string;
   permissionDenied: boolean;
   currentlyBlocking: { groupId: string; groupName: string }[];
   nextChange: { atMinute: number; willBlock: string[] } | null;

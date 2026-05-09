@@ -1,6 +1,7 @@
 import chokidar, { type FSWatcher } from 'chokidar';
 import fsp from 'node:fs/promises';
 import { blockerConfigSchema } from '../shared/schema.js';
+import { migrateConfig } from '../shared/migration.js';
 import type { BlockerConfig } from '../shared/types.js';
 
 /**
@@ -35,7 +36,9 @@ export async function startConfigWatcher(opts: WatcherOpts): Promise<ConfigWatch
       const raw = await fsp.readFile(opts.path, 'utf8');
       if (raw === lastRaw) return cached;
       lastRaw = raw;
-      const next = blockerConfigSchema.parse(JSON.parse(raw)) as BlockerConfig;
+      const parsed = JSON.parse(raw);
+      const { config } = migrateConfig(parsed);
+      const next = blockerConfigSchema.parse(config) as BlockerConfig;
       cached = next;
       return next;
     } catch (err: any) {

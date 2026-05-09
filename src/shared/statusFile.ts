@@ -10,6 +10,10 @@ import type { ScheduleEvaluation } from './types.js';
  */
 export interface ServiceHeartbeat {
   version: 1;
+  /** Runtime build version that produced this heartbeat. */
+  runtimeVersion?: string | null;
+  /** Config schema version the runtime expects. */
+  schemaVersion?: number | null;
   /** Wall-clock ms when this heartbeat was written. */
   writtenAt: number;
   /** Process id of whoever wrote this heartbeat. */

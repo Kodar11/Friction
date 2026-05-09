@@ -149,7 +149,7 @@ export function registerIpc(deps: IpcDeps): () => void {
         week: computeAdherence(cfg, log, 7, now),
         month: computeAdherence(cfg, log, 30, now),
       },
-      heatmap: computeHeatmap(log, cfg.scheduleBlocks, now, 90),
+      heatmap: computeHeatmap(log, cfg.scheduleBlocks, now, 365),
     };
   });
 
@@ -365,18 +365,26 @@ async function computeStatus(store: ConfigStore, heartbeat: HeartbeatReader): Pr
   const cfg = await store.readOrInitDefault();
   const ev = evaluate(cfg, minuteOfDay(new Date()));
   const hb = await heartbeat.read();
+  const appVersion = app.getVersion();
+  const serviceVersion = hb.data?.runtimeVersion ?? null;
+  const serviceOutOfDate = hb.alive && (!serviceVersion || serviceVersion !== appVersion);
 
   const permissionDenied = hb.data?.errorKind === 'permission';
   // When we know the cause is permission, surface a clear actionable message
   // rather than the raw OS message.
   const lastError = permissionDenied
     ? "Focus Blocker can't edit the system hosts file without admin permission. " +
-      "Install the background service (one-time) to fix this."
-    : hb.data?.lastError ?? null;
+      'Install the background service (one-time) to fix this.'
+    : serviceOutOfDate
+      ? 'Background service is out of date. Reinstall it to resume logging and stats.'
+      : hb.data?.lastError ?? null;
 
   return {
     active: cfg.active,
     serviceRunning: hb.alive,
+    serviceOutOfDate,
+    serviceVersion,
+    appVersion,
     permissionDenied,
     currentlyBlocking: ev.activeGroups,
     nextChange: ev.nextChangeAtMinute === null

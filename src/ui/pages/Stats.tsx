@@ -5,7 +5,7 @@ import { StatCard } from '../components/StatCard';
 import { Heatmap } from '../components/Heatmap';
 
 export function StatsPage() {
-  const stats = useStats();
+  const { stats, loading, error, refresh } = useStats();
   const [log, setLog] = useState<DeactivationEntry[]>([]);
 
   useEffect(() => {
@@ -21,6 +21,44 @@ export function StatsPage() {
     return () => { cancelled = true; clearInterval(t); };
   }, []);
 
+  if (!stats && loading) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-[26px] font-semibold tracking-tight text-default">Stats</h1>
+          <p className="text-[13.5px] text-muted mt-0.5">
+            All numbers are computed from your local activity log. Nothing leaves the machine.
+          </p>
+        </div>
+        <div className="card card-section text-center py-10">
+          <Loading />
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats && error) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-[26px] font-semibold tracking-tight text-default">Stats</h1>
+          <p className="text-[13.5px] text-muted mt-0.5">
+            All numbers are computed from your local activity log. Nothing leaves the machine.
+          </p>
+        </div>
+        <div className="card card-section text-center py-8">
+          <div className="text-[13px]" style={{ color: 'var(--danger)' }}>
+            Stats failed to load: {error}
+          </div>
+          <button onClick={refresh} className="btn btn-primary mt-4">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Guard: if stats is still null after loading/error checks, show loading.
   if (!stats) {
     return (
       <div className="space-y-5">
@@ -50,38 +88,70 @@ export function StatsPage() {
         </p>
       </div>
 
+      {error && (
+        <div className="card card-section text-[12.5px]" style={{ color: 'var(--danger)' }}>
+          Stats may be stale: {error}
+          <button onClick={refresh} className="btn btn-ghost ml-3">
+            Retry
+          </button>
+        </div>
+      )}
+
       {isFresh && <FreshEmptyState />}
 
       {/* Streak hero */}
-      <section className="card card-section">
-        <div className="flex flex-wrap items-end gap-x-10 gap-y-4">
-          <div>
+      <section className="card overflow-hidden">
+        <div className="grid grid-cols-2">
+          <div className="px-6 py-5">
             <div className="text-[12px] uppercase tracking-wide text-muted flex items-center gap-1.5">
               <Flame size={13} /> Current streak
             </div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-[44px] font-semibold leading-none tabular-nums">
+            <div className="mt-2.5 flex items-baseline gap-2">
+              <span className="text-[40px] font-semibold leading-none tabular-nums">
                 {stats.streak.current}
               </span>
-              <span className="text-[15px] text-muted">day{stats.streak.current === 1 ? '' : 's'}</span>
-              {stats.streak.current >= 7 && <span className="text-[20px]">🔥</span>}
+              <span className="text-[14px] text-muted">
+                day{stats.streak.current === 1 ? '' : 's'}
+              </span>
+              {stats.streak.current >= 7 && <span className="text-[18px] ml-0.5">🔥</span>}
             </div>
-            {stats.streak.lastActiveDate && (
-              <div className="mt-1 text-[12px] text-faint">last counted: {stats.streak.lastActiveDate}</div>
-            )}
+            <div className="mt-2 text-[12px] text-faint h-4">
+              {stats.streak.lastActiveDate
+                ? `Last counted: ${stats.streak.lastActiveDate}`
+                : 'No qualifying day yet.'}
+            </div>
           </div>
-          <div>
+          <div
+            className="px-6 py-5"
+            style={{ borderLeft: '1px solid var(--border)' }}
+          >
             <div className="text-[12px] uppercase tracking-wide text-muted flex items-center gap-1.5">
               <Trophy size={13} /> Longest ever
             </div>
-            <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-[28px] font-semibold leading-none tabular-nums">
+            <div className="mt-2.5 flex items-baseline gap-2">
+              <span className="text-[40px] font-semibold leading-none tabular-nums">
                 {stats.streak.longest}
               </span>
-              <span className="text-[14px] text-muted">days</span>
+              <span className="text-[14px] text-muted">
+                day{stats.streak.longest === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="mt-2 text-[12px] text-faint h-4">
+              {stats.streak.longest === 0
+                ? "Your record will appear once you've kept a day."
+                : stats.streak.longest === stats.streak.current
+                  ? "That's a personal best — right now."
+                  : 'Personal best so far.'}
             </div>
           </div>
-          <StreakHelp />
+        </div>
+        <div className="divider" />
+        <div
+          className="px-6 py-3 text-[12px] text-muted leading-relaxed"
+          style={{ background: 'var(--bg-secondary)' }}
+        >
+          A day "counts" if blocking was active for at least 80% of your scheduled focus time
+          that day. Days with no scheduled blocks are neutral — they don't extend or break the streak.
         </div>
       </section>
 
@@ -115,7 +185,7 @@ export function StatsPage() {
       {/* Heatmap */}
       <section className="card">
         <div className="card-section">
-          <div className="text-[12px] uppercase tracking-wide text-muted">Last 90 days</div>
+          <div className="text-[12px] uppercase tracking-wide text-muted">Last year</div>
           <div className="text-[16px] font-medium mt-0.5">Adherence heatmap</div>
         </div>
         <div className="px-5 pb-5">
@@ -173,15 +243,6 @@ function FreshEmptyState() {
   );
 }
 
-function StreakHelp() {
-  return (
-    <div className="ml-auto max-w-sm text-[11.5px] text-faint leading-relaxed">
-      A day "counts" if blocking was active for ≥80% of your scheduled focus time that day.
-      Days with no scheduled blocks are neutral — they don't extend or break the streak.
-    </div>
-  );
-}
-
 function DeactivationTable({ log }: { log: DeactivationEntry[] }) {
   if (log.length === 0) {
     return (
@@ -235,7 +296,7 @@ function DeactivationTable({ log }: { log: DeactivationEntry[] }) {
               )}
             </div>
             {e.reason && (
-              <div className="text-[12.5px] text-muted mt-1 break-words whitespace-pre-line">
+              <div className="text-[12.5px] text-muted mt-1 wrap-break-words whitespace-pre-line">
                 {e.reason}
               </div>
             )}

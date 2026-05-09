@@ -18,7 +18,7 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
   const { config } = useConfig();
   const status = useStatus();
   const adminState = useAdminState();
-  const stats = useStats();
+  const { stats, error: statsError, loading: statsLoading, refresh: refreshStats } = useStats();
   const [busy, setBusy] = useState(false);
   const [dialogState, setDialogState] = useState<DeactivateDialogState | null>(null);
   const [nowMinute, setNowMinute] = useState(currentMinute);
@@ -101,6 +101,12 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
       </div>
 
       {adminState && !adminState.isAdmin && <AdminRelaunchBanner />}
+      {status?.serviceOutOfDate && (
+        <ServiceOutOfDateBanner
+          serviceVersion={status.serviceVersion}
+          appVersion={status.appVersion}
+        />
+      )}
 
       {/* Status hero */}
       <section className="card overflow-hidden">
@@ -126,7 +132,7 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
           </div>
         </div>
 
-        {status?.lastError && !status.permissionDenied && (
+        {status?.lastError && !status.permissionDenied && !status.serviceOutOfDate && (
           <>
             <div className="divider" />
             <div className="px-5 py-3 flex items-start gap-2 text-[12.5px]" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
@@ -179,7 +185,13 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
         />
       </div>
 
-      <WeekActivity stats={stats} onViewAll={() => props.onNavigate('stats')} />
+      <WeekActivity
+        stats={stats}
+        loading={statsLoading}
+        error={statsError}
+        onRetry={refreshStats}
+        onViewAll={() => props.onNavigate('stats')}
+      />
 
       <DeactivateDialog
         open={dialogState !== null}
@@ -193,8 +205,47 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
   );
 }
 
-function WeekActivity(props: { stats: StatsBundle | null; onViewAll: () => void }) {
+function WeekActivity(props: {
+  stats: StatsBundle | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onViewAll: () => void;
+}) {
   const s = props.stats;
+  if (props.loading && !s) {
+    return (
+      <section className="card">
+        <div className="card-section flex items-center justify-between">
+          <div>
+            <div className="text-[12.5px] uppercase tracking-wide text-muted">This week</div>
+            <div className="text-[15.5px] font-medium mt-0.5">Activity</div>
+          </div>
+        </div>
+        <div className="divider" />
+        <div className="px-5 py-5 text-[12.5px] text-muted">Loading stats…</div>
+      </section>
+    );
+  }
+  if (props.error && !s) {
+    return (
+      <section className="card">
+        <div className="card-section flex items-center justify-between">
+          <div>
+            <div className="text-[12.5px] uppercase tracking-wide text-muted">This week</div>
+            <div className="text-[15.5px] font-medium mt-0.5">Activity</div>
+          </div>
+          <button onClick={props.onRetry} className="btn btn-ghost">
+            Retry <ArrowRight size={13} />
+          </button>
+        </div>
+        <div className="divider" />
+        <div className="px-5 py-5 text-[12.5px]" style={{ color: 'var(--danger)' }}>
+          Stats unavailable: {props.error}
+        </div>
+      </section>
+    );
+  }
   const streak = s?.streak.current ?? 0;
   const week = s?.timeSaved.week ?? 0;
   const adherence = s?.adherence.week ?? 0;
@@ -398,6 +449,63 @@ function AdminRelaunchBanner() {
         >
           {busy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
           {busy ? 'Relaunching…' : 'Restart with admin'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ServiceOutOfDateBanner(props: { serviceVersion: string | null; appVersion: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onInstall = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await window.blocker.installService();
+      if (!r.ok) setError(r.error ?? 'Install failed.');
+    } catch (err: any) {
+      setError(err?.message ?? String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section
+      className="card overflow-hidden"
+      style={{ background: 'var(--warning-soft)', borderColor: 'rgba(217, 115, 13, 0.25)' }}
+    >
+      <div className="card-section flex items-start gap-3">
+        <div
+          className="h-9 w-9 grid place-items-center rounded-lg shrink-0"
+          style={{ background: 'var(--bg)', color: 'var(--warning)' }}
+        >
+          <ShieldAlert size={18} />
+        </div>
+        <div className="flex-1">
+          <div className="text-[14.5px] font-semibold" style={{ color: 'var(--warning)' }}>
+            Background service needs an update
+          </div>
+          <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: 'var(--warning)', opacity: 0.85 }}>
+            Your app is {props.appVersion}, but the service reports {props.serviceVersion ?? 'unknown'}. Reinstalling
+            the service fixes stats logging and removes the version mismatch.
+          </p>
+          {error && (
+            <p className="text-[12px] mt-2" style={{ color: 'var(--danger)' }}>
+              {error}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={onInstall}
+          disabled={busy}
+          className="btn"
+          style={{ background: 'var(--warning)', color: '#fff', opacity: busy ? 0.6 : 1 }}
+        >
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+          {busy ? 'Reinstalling…' : 'Reinstall service'}
         </button>
       </div>
     </section>

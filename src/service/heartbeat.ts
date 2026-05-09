@@ -6,13 +6,17 @@ import type { ScheduleEvaluation } from '../shared/types.js';
 
 export class HeartbeatWriter {
   private readonly file: string;
+  private readonly runtimeVersion: string | null;
+  private readonly schemaVersion: number | null;
   private writeQueue: Promise<void> = Promise.resolve();
   private lastError: string | null = null;
   private errorKind: 'permission' | 'other' | null = null;
   private lastFlushedAt: number | null = null;
 
-  constructor(dir: string) {
+  constructor(dir: string, opts?: { runtimeVersion?: string | null; schemaVersion?: number | null }) {
     this.file = path.join(dir, STATUS_FILENAME);
+    this.runtimeVersion = opts?.runtimeVersion ?? null;
+    this.schemaVersion = opts?.schemaVersion ?? null;
   }
 
   setLastError(message: string | null, kind: 'permission' | 'other' | null = null) {
@@ -28,6 +32,8 @@ export class HeartbeatWriter {
   write(evaluation: ScheduleEvaluation | null): void {
     const payload: ServiceHeartbeat = {
       version: 1,
+      runtimeVersion: this.runtimeVersion,
+      schemaVersion: this.schemaVersion,
       writtenAt: Date.now(),
       pid: process.pid,
       evaluation,

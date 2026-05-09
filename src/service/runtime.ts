@@ -5,6 +5,7 @@ import { startConfigWatcher, type ConfigWatcher } from './configWatcher.js';
 import { startScheduler, type SchedulerHandle } from './scheduler.js';
 import { ActivityLogger, shouldLogChange } from './activityLogger.js';
 import type { Logger } from './logger.js';
+import { APP_VERSION, CONFIG_VERSION } from '../shared/version.js';
 
 export interface BlockingRuntime {
   apply: (cfg: BlockerConfig | null) => Promise<void>;
@@ -20,7 +21,10 @@ export interface BlockingRuntimeOpts {
 }
 
 export async function startBlockingRuntime(opts: BlockingRuntimeOpts): Promise<BlockingRuntime> {
-  const heartbeat = new HeartbeatWriter(opts.dir);
+  const heartbeat = new HeartbeatWriter(opts.dir, {
+    runtimeVersion: APP_VERSION,
+    schemaVersion: CONFIG_VERSION,
+  });
   const activity = new ActivityLogger({ dir: opts.dir });
   const configName = opts.configPath.split(/[/\\]/).pop() ?? CONFIG_FILENAME;
   opts.logger.info(`Blocking runtime starting. config=${configName}`);

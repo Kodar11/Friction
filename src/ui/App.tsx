@@ -8,6 +8,7 @@ import { WelcomePage } from './pages/Welcome';
 import { DashboardPage } from './pages/Dashboard';
 import { SiteGroupsPage } from './pages/SiteGroups';
 import { SchedulePage } from './pages/Schedule';
+import { StatsPage } from './pages/Stats';
 import { SettingsPage } from './pages/Settings';
 
 function App() {
@@ -51,6 +52,7 @@ function App() {
               {route === 'dashboard' && <DashboardPage onNavigate={setRoute} />}
               {route === 'groups' && <SiteGroupsPage />}
               {route === 'schedule' && <SchedulePage />}
+              {route === 'stats' && <StatsPage />}
               {route === 'settings' && <SettingsPage />}
             </div>
           </main>

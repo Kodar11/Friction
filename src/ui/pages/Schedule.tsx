@@ -23,6 +23,9 @@ export function SchedulePage() {
       kind: 'create',
       startMinute,
       endMinute,
+      // v2 default: every day. Day chips UI in the editor lets the user
+      // narrow this in a follow-up turn.
+      days: [0, 1, 2, 3, 4, 5, 6],
       siteGroupIds: groupId ? [groupId] : [],
     });
   };
@@ -30,7 +33,14 @@ export function SchedulePage() {
   const onSelectBlock = (id: string) => {
     const b = config.scheduleBlocks.find((x) => x.id === id);
     if (!b) return;
-    setEditing({ kind: 'edit', id: b.id, startMinute: b.startMinute, endMinute: b.endMinute, siteGroupIds: [...b.siteGroupIds] });
+    setEditing({
+      kind: 'edit',
+      id: b.id,
+      startMinute: b.startMinute,
+      endMinute: b.endMinute,
+      days: [...b.days],
+      siteGroupIds: [...b.siteGroupIds],
+    });
   };
 
   const saveBlock = (e: EditState) => {
@@ -42,6 +52,7 @@ export function SchedulePage() {
             id: e.id,
             startMinute: e.startMinute,
             endMinute: e.endMinute,
+            days: e.days,
             siteGroupIds: e.siteGroupIds,
           };
         }
@@ -50,6 +61,7 @@ export function SchedulePage() {
           id: 'b_' + Math.random().toString(36).slice(2, 10),
           startMinute: e.startMinute,
           endMinute: e.endMinute,
+          days: e.days,
           siteGroupIds: e.siteGroupIds,
         });
       }
@@ -117,8 +129,21 @@ export function SchedulePage() {
   );
 }
 
-interface EditCreate { kind: 'create'; startMinute: number; endMinute: number; siteGroupIds: string[] }
-interface EditEdit { kind: 'edit'; id: string; startMinute: number; endMinute: number; siteGroupIds: string[] }
+interface EditCreate {
+  kind: 'create';
+  startMinute: number;
+  endMinute: number;
+  days: number[];
+  siteGroupIds: string[];
+}
+interface EditEdit {
+  kind: 'edit';
+  id: string;
+  startMinute: number;
+  endMinute: number;
+  days: number[];
+  siteGroupIds: string[];
+}
 type EditState = EditCreate | EditEdit;
 
 function BlockList(props: { config: BlockerConfig; onEdit: (id: string) => void; onDelete: (id: string) => void }) {

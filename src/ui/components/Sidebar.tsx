@@ -1,6 +1,6 @@
-import { LayoutDashboard, Layers, CalendarClock, Settings as SettingsIcon, Shield, type LucideIcon } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Layers, CalendarClock, Settings as SettingsIcon, Shield, type LucideIcon } from 'lucide-react';
 
-export type Route = 'dashboard' | 'groups' | 'schedule' | 'settings';
+export type Route = 'dashboard' | 'groups' | 'schedule' | 'stats' | 'settings';
 
 interface SidebarProps {
   route: Route;
@@ -14,6 +14,7 @@ const ITEMS: { id: Route; label: string; Icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'groups', label: 'Site groups', Icon: Layers },
   { id: 'schedule', label: 'Schedule', Icon: CalendarClock },
+  { id: 'stats', label: 'Stats', Icon: BarChart3 },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
 

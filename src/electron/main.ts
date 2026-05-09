@@ -14,12 +14,18 @@ import { getPreloadPath, getUIPath } from './pathResolver.js';
 import { createTray } from './tray.js';
 import { ConfigStore } from './configStore.js';
 import { Logger } from '../service/logger.js';
+import { ActivityLogger } from '../service/activityLogger.js';
 import { registerIpc } from './ipc.js';
 import { isCurrentProcessAdmin } from './elevation.js';
 import { startBlockingRuntime, type BlockingRuntime } from '../service/runtime.js';
+import { TransitionNotifier } from './notifier.js';
+import { WeeklySummary } from './weeklySummary.js';
 
 let mainWindow: BrowserWindow | null = null;
 let blockingRuntime: BlockingRuntime | null = null;
+let notifier: TransitionNotifier | null = null;
+let weekly: WeeklySummary | null = null;
+let notifierTick: ReturnType<typeof setInterval> | null = null;
 
 app.on('ready', async () => {
   const userData = app.getPath('userData');
@@ -66,6 +72,19 @@ app.on('ready', async () => {
     mainWindow.loadFile(getUIPath());
   }
 
+  // Notifications: a transition notifier + a Sunday-8PM weekly summary.
+  // Both share the same activity log file the runtime writes to.
+  const activity = new ActivityLogger({ dir: userData });
+  notifier = new TransitionNotifier(logger);
+  weekly = new WeeklySummary(logger, activity, () => store.readOrInitDefault());
+  notifier.update(config);
+  weekly.update(config);
+  // Re-evaluate the transition notifier every minute so it picks up clock
+  // progression even when the config doesn't change.
+  notifierTick = setInterval(() => {
+    void store.readOrInitDefault().then((c) => notifier?.update(c)).catch(() => undefined);
+  }, 60_000);
+
   registerIpc({
     store,
     logger,
@@ -73,6 +92,8 @@ app.on('ready', async () => {
     getMainWindow: () => mainWindow,
     onConfigChanged: async (cfg) => {
       await blockingRuntime?.apply(cfg);
+      notifier?.update(cfg);
+      weekly?.update(cfg);
     },
   });
   createTray(mainWindow);
@@ -80,6 +101,9 @@ app.on('ready', async () => {
   logger.info('App ready.');
 
   app.on('before-quit', () => {
+    if (notifierTick) clearInterval(notifierTick);
+    notifier?.stop();
+    weekly?.stop();
     void blockingRuntime?.stop();
   });
 });

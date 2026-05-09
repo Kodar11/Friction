@@ -27,11 +27,27 @@ afterEach(async () => {
 });
 
 const cfg = (active: boolean): BlockerConfig => ({
-  version: 1,
+  version: 2,
   active,
   siteGroups: [{ id: 'g1', name: 'Social', sites: ['youtube.com'] }],
-  scheduleBlocks: [{ id: 'b1', startMinute: 0, endMinute: 1439, siteGroupIds: ['g1'] }],
-  preferences: { autoLaunchOnBoot: false, theme: 'system', showWelcomeScreen: false },
+  scheduleBlocks: [
+    {
+      id: 'b1',
+      startMinute: 0,
+      endMinute: 1439,
+      days: [0, 1, 2, 3, 4, 5, 6],
+      siteGroupIds: ['g1'],
+    },
+  ],
+  preferences: {
+    autoLaunchOnBoot: false,
+    theme: 'system',
+    showWelcomeScreen: false,
+    notificationsEnabled: true,
+    weeklySummaryEnabled: true,
+  },
+  hardMode: { level: 'light' },
+  stats: { currentStreak: 0, longestStreak: 0, lastActiveDate: null, deactivationLog: [] },
 });
 
 describe('startScheduler', () => {

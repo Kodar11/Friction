@@ -1,18 +1,26 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, AlertCircle, ExternalLink, Info, Layers, CalendarClock, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2 } from 'lucide-react';
+import { ArrowRight, AlertCircle, ExternalLink, Flame, Info, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { useStatus } from '../hooks/useStatus';
 import { useAdminState } from '../hooks/useAdminState';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useStats } from '../hooks/useStats';
+import { DeactivateDialog } from '../components/DeactivateDialog';
 import { Timeline } from '../components/Timeline';
 import type { Route } from '../components/Sidebar';
+
+interface DeactivateDialogState {
+  flow: 'needs-confirm' | 'needs-phrase' | 'needs-countdown' | 'blocked';
+  countdownMs?: number;
+  requiredPhrase?: string;
+}
 
 export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
   const { config } = useConfig();
   const status = useStatus();
   const adminState = useAdminState();
-  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const stats = useStats();
   const [busy, setBusy] = useState(false);
+  const [dialogState, setDialogState] = useState<DeactivateDialogState | null>(null);
   const [nowMinute, setNowMinute] = useState(currentMinute);
 
   useEffect(() => {
@@ -26,12 +34,47 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
     setBusy(true);
     try { await window.blocker.activate(); } finally { setBusy(false); }
   };
-  const onDeactivate = async () => {
+
+  const onRequestDeactivate = async () => {
     setBusy(true);
-    try { await window.blocker.deactivate(); } finally {
+    try {
+      const r = await window.blocker.requestDeactivate();
+      if (r.result === 'allowed') {
+        // 'off' Hard Mode — no friction, deactivate immediately.
+        await window.blocker.completeDeactivate({ reason: null });
+      } else {
+        setDialogState({
+          flow: r.result,
+          countdownMs: r.countdownMs,
+          requiredPhrase: r.requiredPhrase,
+        });
+      }
+    } finally {
       setBusy(false);
-      setConfirmDeactivate(false);
     }
+  };
+
+  const onDialogComplete = async (reason: string | null) => {
+    setBusy(true);
+    try {
+      await window.blocker.completeDeactivate({ reason });
+    } finally {
+      setBusy(false);
+      setDialogState(null);
+    }
+  };
+
+  const onDialogCancel = async (reason: string | null) => {
+    // Don't log a cancellation for the 'blocked' flow — the user never
+    // actually started a real friction attempt; main refused upfront.
+    if (dialogState && dialogState.flow !== 'blocked') {
+      try {
+        await window.blocker.cancelDeactivate({ reason });
+      } catch {
+        // ignore
+      }
+    }
+    setDialogState(null);
   };
 
   const blocking = status?.currentlyBlocking ?? [];
@@ -51,13 +94,15 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
             <Power size={14} /> Activate
           </button>
         ) : (
-          <button onClick={() => setConfirmDeactivate(true)} disabled={busy} className="btn btn-danger">
+          <button onClick={onRequestDeactivate} disabled={busy} className="btn btn-danger">
             <Power size={14} /> Deactivate
           </button>
         )}
       </div>
 
       {adminState && !adminState.isAdmin && <AdminRelaunchBanner />}
+
+      <StatStrip stats={stats} onViewAll={() => props.onNavigate('stats')} />
 
       {/* Status hero */}
       <section className="card overflow-hidden">
@@ -137,17 +182,85 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
         />
       </div>
 
-      <ConfirmDialog
-        open={confirmDeactivate}
-        title="Deactivate blocking?"
-        message="Sites will be unblocked immediately. You can re-activate any time."
-        destructive
-        confirmLabel="Deactivate"
-        onConfirm={onDeactivate}
-        onCancel={() => setConfirmDeactivate(false)}
+      <DeactivateDialog
+        open={dialogState !== null}
+        flow={dialogState?.flow ?? 'needs-confirm'}
+        countdownMs={dialogState?.countdownMs}
+        requiredPhrase={dialogState?.requiredPhrase}
+        onComplete={onDialogComplete}
+        onCancel={onDialogCancel}
       />
     </div>
   );
+}
+
+function StatStrip(props: { stats: StatsBundle | null; onViewAll: () => void }) {
+  const s = props.stats;
+  const streak = s?.streak.current ?? 0;
+  const week = s?.timeSaved.week ?? 0;
+  const adherence = s?.adherence.week ?? 0;
+  return (
+    <div className="grid grid-cols-4 gap-3">
+      <MiniStat
+        Icon={Flame}
+        label="Streak"
+        value={`${streak}d`}
+        accent={streak >= 7 ? 'var(--warning)' : undefined}
+        suffix={streak >= 7 ? '🔥' : ''}
+      />
+      <MiniStat
+        Icon={Clock}
+        label="Saved · this week"
+        value={formatHoursShort(week)}
+      />
+      <MiniStat
+        Icon={Percent}
+        label="Adherence · week"
+        value={`${adherence}%`}
+      />
+      <button
+        onClick={props.onViewAll}
+        className="card text-left p-4 transition-colors group"
+        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '')}
+      >
+        <div className="flex items-center gap-2 text-muted">
+          <ArrowRight size={14} />
+          <span className="text-[12px] uppercase tracking-wide">Full stats</span>
+        </div>
+        <div className="text-[14px] mt-3 text-default">View streak, heatmap, and the deactivation log →</div>
+      </button>
+    </div>
+  );
+}
+
+function MiniStat(props: {
+  Icon: typeof Flame;
+  label: string;
+  value: string;
+  accent?: string;
+  suffix?: string;
+}) {
+  const { Icon } = props;
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-2 text-muted">
+        <Icon size={13} style={props.accent ? { color: props.accent } : undefined} />
+        <span className="text-[11.5px] uppercase tracking-wide">{props.label}</span>
+      </div>
+      <div className="text-[22px] font-semibold mt-2 leading-none tabular-nums flex items-baseline gap-1.5">
+        {props.value}
+        {props.suffix && <span className="text-[14px]">{props.suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+function formatHoursShort(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const hours = minutes / 60;
+  if (hours < 10) return `${hours.toFixed(1)}h`;
+  return `${Math.round(hours)}h`;
 }
 
 function StatusIcon(props: { active: boolean; inWindow: boolean }) {

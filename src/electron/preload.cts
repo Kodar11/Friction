@@ -6,6 +6,18 @@ electron.contextBridge.exposeInMainWorld('blocker', {
   getStatus: () => ipcInvoke('getStatus'),
   activate: () => ipcInvoke('activate'),
   deactivate: () => ipcInvoke('deactivate'),
+  requestDeactivate: () => ipcInvoke('requestDeactivate'),
+  completeDeactivate: (payload: { reason: string | null }) =>
+    ipcInvokeWith('completeDeactivate', payload),
+  cancelDeactivate: (payload: { reason: string | null }) =>
+    ipcInvokeWith('cancelDeactivate', payload),
+  setHardMode: (level: HardModeLevel) => ipcInvokeWith('setHardMode', level),
+  getDeactivationLog: () => ipcInvoke('getDeactivationLog'),
+  getStats: () => ipcInvoke('getStats'),
+  exportSchedule: () => ipcInvoke('exportSchedule'),
+  importSchedule: () => ipcInvoke('importSchedule'),
+  applyImportedSchedule: (preview: FblockPreview) =>
+    ipcInvokeWith('applyImportedSchedule', preview),
   restoreHostsFile: () => ipcInvoke('restoreHostsFile'),
   openLogFolder: () => ipcInvoke('openLogFolder'),
   getLogs: (limit: number) => ipcInvokeWith('getLogs', limit),

@@ -2,12 +2,27 @@ import { app, BrowserWindow, shell } from 'electron';
 import { ipcMainHandle, ipcMainOn, ipcWebContentsSend, isDev } from './util.js';
 import { ConfigStore } from './configStore.js';
 import { Logger } from '../service/logger.js';
+import { ActivityLogger } from '../service/activityLogger.js';
 import { evaluate, minuteOfDay } from '../shared/scheduleEngine.js';
+import {
+  computeAdherence,
+  computeHeatmap,
+  computeStreak,
+  computeTimeSaved,
+} from '../shared/statsEngine.js';
 import { removeManagedRegion } from '../service/hostsWriter/index.js';
 import { HeartbeatReader } from './heartbeatReader.js';
 import { installServiceElevated, isServiceInstalled, relaunchAsAdmin, uninstallServiceElevated } from './elevation.js';
 import { flushDns } from '../service/dnsFlush.js';
-import type { BlockerConfig, BlockerStatus } from '../shared/types.js';
+import {
+  appendDeactivation,
+  buildCancelledEntry,
+  buildDeactivationEntry,
+  classifyDeactivateRequest,
+  closeOpenDeactivation,
+} from './hardMode.js';
+import { exportToFile, importFromFile, type FblockPreview } from './importExport.js';
+import type { BlockerConfig, BlockerStatus, HardModeLevel } from '../shared/types.js';
 
 export interface IpcDeps {
   store: ConfigStore;
@@ -20,6 +35,7 @@ export interface IpcDeps {
 export function registerIpc(deps: IpcDeps): () => void {
   const { store, logger, isAdmin, getMainWindow, onConfigChanged } = deps;
   const heartbeat = new HeartbeatReader(app.getPath('userData'));
+  const activity = new ActivityLogger({ dir: app.getPath('userData') });
 
   ipcMainHandle('getConfig', async () => {
     return await store.readOrInitDefault();
@@ -50,6 +66,133 @@ export function registerIpc(deps: IpcDeps): () => void {
   ipcMainHandle('deactivate', async () =>
     flipActive(store, false, logger, getMainWindow(), heartbeat, onConfigChanged),
   );
+
+  // --- Hard Mode flow ---
+
+  ipcMainHandle('requestDeactivate', async () => {
+    const cfg = await store.readOrInitDefault();
+    return classifyDeactivateRequest(cfg);
+  });
+
+  ipcMainHandle('completeDeactivate', async (payload: { reason: string | null } | undefined) => {
+    try {
+      const cfg = await store.readOrInitDefault();
+      const level = cfg.hardMode.level;
+      // Append the deactivation entry first so even if the flip below fails
+      // we have the audit record.
+      cfg.stats.deactivationLog = appendDeactivation(
+        cfg.stats.deactivationLog,
+        buildDeactivationEntry(level, payload?.reason ?? null),
+      );
+      await store.write(cfg);
+      logger.info(`Deactivation logged (level=${level}).`);
+      return await flipActive(store, false, logger, getMainWindow(), heartbeat, onConfigChanged);
+    } catch (err: any) {
+      logger.error(`completeDeactivate failed: ${err?.message ?? err}`);
+      return { ok: false };
+    }
+  });
+
+  ipcMainHandle('cancelDeactivate', async (payload: { reason: string | null } | undefined) => {
+    try {
+      const cfg = await store.readOrInitDefault();
+      const level = cfg.hardMode.level;
+      cfg.stats.deactivationLog = appendDeactivation(
+        cfg.stats.deactivationLog,
+        buildCancelledEntry(level, payload?.reason ?? null),
+      );
+      await store.write(cfg);
+      logger.info(`Deactivation cancelled (level=${level}).`);
+      const win = getMainWindow();
+      if (win) ipcWebContentsSend('config-changed', win.webContents, cfg);
+      return { ok: true };
+    } catch (err: any) {
+      logger.error(`cancelDeactivate failed: ${err?.message ?? err}`);
+      return { ok: false };
+    }
+  });
+
+  ipcMainHandle('setHardMode', async (level: HardModeLevel | undefined) => {
+    try {
+      if (!level) return { ok: false };
+      const cfg = await store.readOrInitDefault();
+      cfg.hardMode.level = level;
+      await store.write(cfg);
+      logger.info(`Hard Mode set to ${level}.`);
+      const win = getMainWindow();
+      if (win) ipcWebContentsSend('config-changed', win.webContents, cfg);
+      return { ok: true };
+    } catch (err: any) {
+      logger.error(`setHardMode failed: ${err?.message ?? err}`);
+      return { ok: false };
+    }
+  });
+
+  ipcMainHandle('getDeactivationLog', async () => {
+    const cfg = await store.readOrInitDefault();
+    return cfg.stats.deactivationLog;
+  });
+
+  ipcMainHandle('getStats', async () => {
+    const cfg = await store.readOrInitDefault();
+    const log = await activity.read();
+    const now = new Date();
+    const streak = computeStreak(log, cfg.scheduleBlocks, now);
+    return {
+      streak: { current: streak.current, longest: streak.longest, lastActiveDate: streak.lastActiveDate },
+      timeSaved: {
+        week: computeTimeSaved(log, cfg.scheduleBlocks, 7, now),
+        month: computeTimeSaved(log, cfg.scheduleBlocks, 30, now),
+        allTime: computeTimeSaved(log, cfg.scheduleBlocks, 365, now),
+      },
+      adherence: {
+        week: computeAdherence(cfg, log, 7, now),
+        month: computeAdherence(cfg, log, 30, now),
+      },
+      heatmap: computeHeatmap(log, cfg.scheduleBlocks, now, 90),
+    };
+  });
+
+  // --- Schedule Import / Export ---
+
+  ipcMainHandle('exportSchedule', async () => {
+    const cfg = await store.readOrInitDefault();
+    const result = await exportToFile(cfg, getMainWindow());
+    if (result.ok) logger.info(`Schedule exported to ${result.path}`);
+    else if (!result.cancelled) logger.warn(`Export failed: ${result.error}`);
+    return result;
+  });
+
+  ipcMainHandle('importSchedule', async () => {
+    const result = await importFromFile(getMainWindow());
+    if (result.ok) {
+      logger.info(`Schedule preview parsed (${result.preview?.scheduleBlocks.length ?? 0} blocks).`);
+    } else if (!result.cancelled) {
+      logger.warn(`Import failed: ${result.error}`);
+    }
+    return result;
+  });
+
+  ipcMainHandle('applyImportedSchedule', async (preview: FblockPreview | undefined) => {
+    try {
+      if (!preview) return { ok: false, error: 'No preview supplied.' };
+      const cfg = await store.readOrInitDefault();
+      cfg.siteGroups = preview.siteGroups;
+      cfg.scheduleBlocks = preview.scheduleBlocks;
+      // Bring active=false so the user can review what got imported before
+      // turning it on. Stats and Hard Mode untouched.
+      cfg.active = false;
+      await store.write(cfg);
+      await onConfigChanged?.(cfg);
+      logger.info('Imported schedule applied (active reset to false).');
+      const win = getMainWindow();
+      if (win) ipcWebContentsSend('config-changed', win.webContents, cfg);
+      return { ok: true };
+    } catch (err: any) {
+      logger.error(`applyImportedSchedule failed: ${err?.message ?? err}`);
+      return { ok: false, error: err?.message ?? String(err) };
+    }
+  });
 
   ipcMainHandle('restoreHostsFile', async () => {
     try {
@@ -186,6 +329,12 @@ async function flipActive(
     const cfg = await store.readOrInitDefault();
     if (cfg.active === active) return { ok: true };
     cfg.active = active;
+    // When the user re-activates, close the most recent open deactivation
+    // entry by stamping reactivatedAt — this is what powers "you were
+    // deactivated for 4h 22m" in the stats screen.
+    if (active) {
+      cfg.stats.deactivationLog = closeOpenDeactivation(cfg.stats.deactivationLog);
+    }
     await store.write(cfg);
     await onConfigChanged?.(cfg);
     logger.info(`Active flipped: ${active}`);

@@ -7,19 +7,22 @@ export const REDIRECT_IP = '127.0.0.1';
 
 export const SCHEDULE_TICK_MS = 60_000;
 export const CONFIG_FILENAME = 'config.json';
+export const CONFIG_BACKUP_V1 = 'config.json.v1.bak';
 export const STATUS_FILENAME = 'status.json';
+export const ACTIVITY_FILENAME = 'activity.jsonl';
 export const LOG_FILENAME = 'focus-blocker.log';
 
 /** A status file written more recently than this is considered "live". */
 export const HEARTBEAT_FRESHNESS_MS = 2.5 * 60_000;
 
 export const MINUTES_PER_DAY = 24 * 60;
+export const DAYS_PER_WEEK = 7;
 
-/** Default config used on first install. IDs are passed in so the caller
+/** v2 default config used on first install. IDs are passed in so the caller
  *  controls UUID generation (keeps this module dependency-free). */
 export function defaultConfig(socialId: string, blockId: string): import('./types.js').BlockerConfig {
   return {
-    version: 1,
+    version: 2,
     active: false,
     siteGroups: [
       {
@@ -33,6 +36,7 @@ export function defaultConfig(socialId: string, blockId: string): import('./type
         id: blockId,
         startMinute: 22 * 60,
         endMinute: 8 * 60,
+        days: [0, 1, 2, 3, 4, 5, 6],
         siteGroupIds: [socialId],
       },
     ],
@@ -40,6 +44,15 @@ export function defaultConfig(socialId: string, blockId: string): import('./type
       autoLaunchOnBoot: false,
       theme: 'system',
       showWelcomeScreen: true,
+      notificationsEnabled: true,
+      weeklySummaryEnabled: true,
+    },
+    hardMode: { level: 'light' },
+    stats: {
+      currentStreak: 0,
+      longestStreak: 0,
+      lastActiveDate: null,
+      deactivationLog: [],
     },
   };
 }

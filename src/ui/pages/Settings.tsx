@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bug, ExternalLink, FolderOpen, Globe, Loader2, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react';
+import { Bug, Download, ExternalLink, FolderOpen, Globe, Loader2, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShieldOff, Trash2, Upload } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { useAdminState } from '../hooks/useAdminState';
 import { useThemeStore, type Theme } from '../store/themeStore';
@@ -88,6 +88,24 @@ export function SettingsPage() {
         />
       </Section>
 
+      <HardModeSection
+        level={config.hardMode.level}
+        onChange={async (level) => {
+          await window.blocker.setHardMode(level);
+        }}
+      />
+
+      <NotificationsSection
+        notificationsEnabled={config.preferences.notificationsEnabled}
+        weeklySummaryEnabled={config.preferences.weeklySummaryEnabled}
+        onChangeMaster={async (v) => {
+          await update((draft) => { draft.preferences.notificationsEnabled = v; });
+        }}
+        onChangeWeekly={async (v) => {
+          await update((draft) => { draft.preferences.weeklySummaryEnabled = v; });
+        }}
+      />
+
       <AdminSection />
 
       <Section title="Recovery" subtitle="Removes only the focus-blocker region between our markers; entries outside are untouched.">
@@ -112,6 +130,8 @@ export function SettingsPage() {
           security → Security → Use secure DNS).
         </p>
       </Section>
+
+      <ImportExportSection />
 
       <ServiceSection />
 
@@ -155,6 +175,267 @@ export function SettingsPage() {
       />
     </div>
   );
+}
+
+// --- Hard Mode ---
+
+const HARD_MODE_LEVELS: { id: HardModeLevel; title: string; description: string }[] = [
+  { id: 'off', title: 'Off', description: 'Deactivate instantly with no friction.' },
+  { id: 'light', title: 'Light', description: 'A simple confirm dialog before deactivating. Default.' },
+  { id: 'medium', title: 'Medium', description: 'Type the exact phrase “DEACTIVATE FOCUS BLOCKER” to deactivate.' },
+  { id: 'hard', title: 'Hard', description: '5-minute cool-down + a required reason that gets logged.' },
+  { id: 'extreme', title: 'Extreme', description: 'Same as Hard, but blocking can\'t be deactivated during a scheduled window at all.' },
+];
+
+function HardModeSection(props: {
+  level: HardModeLevel;
+  onChange: (level: HardModeLevel) => void | Promise<void>;
+}) {
+  return (
+    <Section
+      title="Hard Mode"
+      subtitle="Choose how much friction you need before deactivation."
+    >
+      <ul className="space-y-1.5">
+        {HARD_MODE_LEVELS.map((opt) => {
+          const checked = props.level === opt.id;
+          return (
+            <li
+              key={opt.id}
+              onClick={() => void props.onChange(opt.id)}
+              className="flex items-start gap-3 px-3 py-2.5 rounded-md cursor-pointer transition-colors"
+              style={{
+                background: checked ? 'var(--bg-active)' : 'transparent',
+                border: '1px solid ' + (checked ? 'var(--border-strong)' : 'var(--border)'),
+              }}
+            >
+              <input
+                type="radio"
+                name="hard-mode"
+                checked={checked}
+                readOnly
+                className="mt-1 shrink-0"
+              />
+              <div className="flex-1">
+                <div className="text-[13.5px] font-medium">{opt.title}</div>
+                <div className="text-[12.5px] text-muted mt-0.5">{opt.description}</div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
+// --- Notifications ---
+
+function NotificationsSection(props: {
+  notificationsEnabled: boolean;
+  weeklySummaryEnabled: boolean;
+  onChangeMaster: (v: boolean) => void | Promise<void>;
+  onChangeWeekly: (v: boolean) => void | Promise<void>;
+}) {
+  return (
+    <Section
+      title="Notifications"
+      subtitle="Two transition reminders + an optional Sunday-evening summary. All built from local data."
+    >
+      <ToggleRow
+        label="Enable transition reminders"
+        description={
+          'Notify you 5 minutes before a free window starts, and 10 minutes before the next block window.'
+        }
+        checked={props.notificationsEnabled}
+        onChange={(v) => void props.onChangeMaster(v)}
+      />
+      <div className="mt-4">
+        <ToggleRow
+          label="Weekly summary (Sunday 8 PM)"
+          description={
+            "A short summary: time saved this week, adherence %, current streak. Doesn't fire if the master toggle is off."
+          }
+          checked={props.weeklySummaryEnabled}
+          onChange={(v) => void props.onChangeWeekly(v)}
+        />
+      </div>
+    </Section>
+  );
+}
+
+// --- Import / Export ---
+
+function ImportExportSection() {
+  const [busy, setBusy] = useState<'export' | 'import' | 'apply' | null>(null);
+  const [message, setMessage] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [preview, setPreview] = useState<FblockPreview | null>(null);
+
+  const flash = (kind: 'ok' | 'err', text: string) => {
+    setMessage({ kind, text });
+    setTimeout(() => setMessage(null), 4000);
+  };
+
+  const onExport = async () => {
+    setBusy('export');
+    setMessage(null);
+    try {
+      const r = await window.blocker.exportSchedule();
+      if (r.ok) flash('ok', `Exported to ${r.path}`);
+      else if (!r.cancelled) flash('err', r.error ?? 'Export failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onImport = async () => {
+    setBusy('import');
+    setMessage(null);
+    try {
+      const r = await window.blocker.importSchedule();
+      if (r.ok && r.preview) setPreview(r.preview);
+      else if (!r.cancelled) flash('err', r.error ?? 'Import failed.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onApply = async () => {
+    if (!preview) return;
+    setBusy('apply');
+    try {
+      const r = await window.blocker.applyImportedSchedule(preview);
+      if (r.ok) {
+        flash('ok', `Applied ${preview.scheduleBlocks.length} block(s) and ${preview.siteGroups.length} group(s).`);
+        setPreview(null);
+      } else {
+        flash('err', r.error ?? 'Apply failed.');
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Section
+      title="Import / Export"
+      subtitle="Share a schedule with someone else, or restore one you saved earlier. .fblock files contain only your site groups and schedule — never stats or Hard Mode settings."
+    >
+      <div className="flex flex-wrap gap-2">
+        <button onClick={onExport} disabled={busy !== null} className="btn">
+          {busy === 'export' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          Export schedule…
+        </button>
+        <button onClick={onImport} disabled={busy !== null} className="btn">
+          {busy === 'import' ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+          Import schedule…
+        </button>
+      </div>
+      {message && (
+        <p
+          className="text-[12px] mt-3"
+          style={{ color: message.kind === 'ok' ? 'var(--success)' : 'var(--danger)' }}
+        >
+          {message.text}
+        </p>
+      )}
+
+      {preview && (
+        <ImportPreviewModal
+          preview={preview}
+          busy={busy === 'apply'}
+          onCancel={() => setPreview(null)}
+          onApply={onApply}
+        />
+      )}
+    </Section>
+  );
+}
+
+function ImportPreviewModal(props: {
+  preview: FblockPreview;
+  busy: boolean;
+  onCancel: () => void;
+  onApply: () => void;
+}) {
+  const { preview } = props;
+  const totalSites = preview.siteGroups.reduce((n, g) => n + g.sites.length, 0);
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
+      <div className="card w-full max-w-lg" style={{ boxShadow: 'var(--shadow-lg)' }}>
+        <div className="card-section">
+          <h2 className="text-[16px] font-semibold">Replace your current schedule?</h2>
+          <p className="text-[12.5px] text-muted mt-1">
+            <span className="font-mono">{preview.filename}</span> — exported{' '}
+            {new Date(preview.exportedAt).toLocaleString()}
+          </p>
+        </div>
+        <div className="divider" />
+        <div className="card-section grid grid-cols-2 gap-3">
+          <div
+            className="rounded-md p-3"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            <div className="text-[11.5px] uppercase tracking-wide text-muted">Site groups</div>
+            <div className="text-[20px] font-semibold mt-1.5 leading-none tabular-nums">
+              {preview.siteGroups.length}
+            </div>
+            <div className="text-[12px] text-muted mt-1">{totalSites} sites total</div>
+            <ul className="mt-2 text-[12px] text-default space-y-0.5 max-h-32 overflow-y-auto">
+              {preview.siteGroups.map((g) => (
+                <li key={g.id} className="flex items-baseline justify-between gap-2">
+                  <span className="truncate">{g.name}</span>
+                  <span className="text-faint shrink-0">{g.sites.length}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div
+            className="rounded-md p-3"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            <div className="text-[11.5px] uppercase tracking-wide text-muted">Schedule blocks</div>
+            <div className="text-[20px] font-semibold mt-1.5 leading-none tabular-nums">
+              {preview.scheduleBlocks.length}
+            </div>
+            <div className="text-[12px] text-muted mt-1">total blocks</div>
+            <ul className="mt-2 text-[12px] text-default space-y-0.5 max-h-32 overflow-y-auto tabular-nums">
+              {preview.scheduleBlocks.slice(0, 8).map((b) => (
+                <li key={b.id}>
+                  {fmt(b.startMinute)} → {fmt(b.endMinute)}{' '}
+                  <span className="text-faint">({b.days.length}d)</span>
+                </li>
+              ))}
+              {preview.scheduleBlocks.length > 8 && (
+                <li className="text-faint">+ {preview.scheduleBlocks.length - 8} more</li>
+              )}
+            </ul>
+          </div>
+        </div>
+        <div className="divider" />
+        <div className="card-section py-3">
+          <p className="text-[12px] text-muted leading-relaxed">
+            This <strong className="text-default">replaces</strong> your current site groups and
+            schedule. Stats, Hard Mode, and your other preferences stay as-is. Blocking will be
+            switched off so you can review the imported schedule before re-activating.
+          </p>
+        </div>
+        <div className="divider" />
+        <div className="card-section py-3 flex justify-end gap-2">
+          <button onClick={props.onCancel} disabled={props.busy} className="btn">Cancel</button>
+          <button onClick={props.onApply} disabled={props.busy} className="btn btn-primary">
+            {props.busy ? <Loader2 size={14} className="animate-spin" /> : null}
+            Replace schedule
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function fmt(m: number): string {
+  const h = Math.floor(m / 60).toString().padStart(2, '0');
+  const mm = (m % 60).toString().padStart(2, '0');
+  return `${h}:${mm}`;
 }
 
 function BrowserDnsButton() {

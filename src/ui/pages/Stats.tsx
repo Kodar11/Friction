@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Award, Clock, Flame, Percent, ShieldOff, Trophy } from 'lucide-react';
+import { Award, BarChart3, Clock, Flame, Percent, ShieldOff, Trophy } from 'lucide-react';
 import { useStats } from '../hooks/useStats';
 import { StatCard } from '../components/StatCard';
 import { Heatmap } from '../components/Heatmap';
@@ -22,8 +22,24 @@ export function StatsPage() {
   }, []);
 
   if (!stats) {
-    return <div className="card card-section text-[13px] text-muted">Loading stats…</div>;
+    return (
+      <div className="space-y-5">
+        <div>
+          <h1 className="text-[26px] font-semibold tracking-tight text-default">Stats</h1>
+          <p className="text-[13.5px] text-muted mt-0.5">
+            All numbers are computed from your local activity log. Nothing leaves the machine.
+          </p>
+        </div>
+        <div className="card card-section text-center py-10">
+          <Loading />
+        </div>
+      </div>
+    );
   }
+
+  // Fresh user — nothing has been blocked yet. Show a clear "no data yet"
+  // state instead of a sea of zeroes + an all-empty heatmap.
+  const isFresh = stats.timeSaved.allTime === 0 && stats.streak.current === 0 && log.length === 0;
 
   return (
     <div className="space-y-5">
@@ -33,6 +49,8 @@ export function StatsPage() {
           All numbers are computed from your local activity log. Nothing leaves the machine.
         </p>
       </div>
+
+      {isFresh && <FreshEmptyState />}
 
       {/* Streak hero */}
       <section className="card card-section">
@@ -115,6 +133,43 @@ export function StatsPage() {
         <DeactivationTable log={log} />
       </section>
     </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="text-[13px] text-muted">
+      <BarChart3 size={20} className="mx-auto mb-2 opacity-60" />
+      Loading stats…
+    </div>
+  );
+}
+
+function FreshEmptyState() {
+  return (
+    <section
+      className="card card-section"
+      style={{
+        background: 'var(--bg-secondary)',
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className="h-10 w-10 grid place-items-center rounded-lg shrink-0"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+        >
+          <BarChart3 size={18} />
+        </div>
+        <div>
+          <div className="text-[14.5px] font-semibold">Stats start when blocking does</div>
+          <p className="text-[12.5px] text-muted mt-1 leading-relaxed">
+            Activate Focus Blocker and let your first scheduled window pass — adherence, time saved,
+            and the heatmap fill in once the runtime logs activity. The streak counts a day if
+            blocking covered ≥80% of the time you scheduled it.
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

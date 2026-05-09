@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, AlertCircle, ExternalLink, Flame, Info, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2 } from 'lucide-react';
+import { ArrowRight, AlertCircle, Flame, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { useStatus } from '../hooks/useStatus';
 import { useAdminState } from '../hooks/useAdminState';
@@ -102,8 +102,6 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
 
       {adminState && !adminState.isAdmin && <AdminRelaunchBanner />}
 
-      <StatStrip stats={stats} onViewAll={() => props.onNavigate('stats')} />
-
       {/* Status hero */}
       <section className="card overflow-hidden">
         <div className="card-section">
@@ -138,7 +136,6 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
           </>
         )}
 
-        {isActive && inWindow && <BrowserCacheHint />}
       </section>
 
       {/* Today's schedule preview */}
@@ -182,6 +179,8 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
         />
       </div>
 
+      <WeekActivity stats={stats} onViewAll={() => props.onNavigate('stats')} />
+
       <DeactivateDialog
         open={dialogState !== null}
         flow={dialogState?.flow ?? 'needs-confirm'}
@@ -194,73 +193,115 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
   );
 }
 
-function StatStrip(props: { stats: StatsBundle | null; onViewAll: () => void }) {
+function WeekActivity(props: { stats: StatsBundle | null; onViewAll: () => void }) {
   const s = props.stats;
   const streak = s?.streak.current ?? 0;
   const week = s?.timeSaved.week ?? 0;
   const adherence = s?.adherence.week ?? 0;
+  const noData = s !== null && week === 0 && streak === 0 && s.timeSaved.allTime === 0;
+
   return (
-    <div className="grid grid-cols-4 gap-3">
-      <MiniStat
-        Icon={Flame}
-        label="Streak"
-        value={`${streak}d`}
-        accent={streak >= 7 ? 'var(--warning)' : undefined}
-        suffix={streak >= 7 ? '🔥' : ''}
-      />
-      <MiniStat
-        Icon={Clock}
-        label="Saved · this week"
-        value={formatHoursShort(week)}
-      />
-      <MiniStat
-        Icon={Percent}
-        label="Adherence · week"
-        value={`${adherence}%`}
-      />
-      <button
-        onClick={props.onViewAll}
-        className="card text-left p-4 transition-colors group"
-        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')}
-        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '')}
-      >
-        <div className="flex items-center gap-2 text-muted">
-          <ArrowRight size={14} />
-          <span className="text-[12px] uppercase tracking-wide">Full stats</span>
+    <section className="card overflow-hidden">
+      <div className="card-section flex items-center justify-between">
+        <div>
+          <div className="text-[12.5px] uppercase tracking-wide text-muted">This week</div>
+          <div className="text-[15.5px] font-medium mt-0.5">Activity</div>
         </div>
-        <div className="text-[14px] mt-3 text-default">View streak, heatmap, and the deactivation log →</div>
-      </button>
-    </div>
+        <button onClick={props.onViewAll} className="btn btn-ghost">
+          Full stats <ArrowRight size={13} />
+        </button>
+      </div>
+      <div className="divider" />
+      <div className="grid grid-cols-3">
+        <ActivityStat
+          Icon={Flame}
+          label="Current streak"
+          value={`${streak}`}
+          unit={streak === 1 ? 'day' : 'days'}
+          hint={streak >= 7 ? 'on a roll 🔥' : streak === 0 ? 'just getting started' : 'keep going'}
+          accent={streak >= 7 ? 'var(--warning)' : 'var(--text-muted)'}
+        />
+        <ActivityStat
+          Icon={Clock}
+          label="Time saved"
+          value={formatHoursValue(week)}
+          unit={week >= 60 ? 'hours' : 'minutes'}
+          hint={week === 0 ? 'no scheduled focus completed yet' : 'in scheduled focus blocks'}
+          accent="var(--text-muted)"
+          divider
+        />
+        <ActivityStat
+          Icon={Percent}
+          label="Adherence"
+          value={`${adherence}`}
+          unit="%"
+          hint={
+            adherence === 0
+              ? 'aim for ≥80% to keep the streak'
+              : adherence >= 80
+                ? 'meeting the streak threshold'
+                : 'under the 80% streak threshold'
+          }
+          accent={adherence >= 80 ? 'var(--success)' : 'var(--text-muted)'}
+          divider
+        />
+      </div>
+      {noData && (
+        <>
+          <div className="divider" />
+          <div
+            className="px-5 py-3 text-[12px] text-muted leading-relaxed"
+            style={{ background: 'var(--bg-secondary)' }}
+          >
+            Stats start populating after blocking is active during a scheduled window. Activate above
+            and let your first block run — numbers fill in once the runtime logs activity.
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
-function MiniStat(props: {
+interface ActivityStatProps {
   Icon: typeof Flame;
   label: string;
   value: string;
+  unit?: string;
+  hint?: string;
   accent?: string;
-  suffix?: string;
-}) {
+  /** Renders a left-side divider — used on the 2nd and 3rd cells. */
+  divider?: boolean;
+}
+
+function ActivityStat(props: ActivityStatProps) {
   const { Icon } = props;
   return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 text-muted">
+    <div
+      className="px-5 py-5 relative"
+      style={{
+        borderLeft: props.divider ? '1px solid var(--border)' : 'none',
+      }}
+    >
+      <div className="flex items-center gap-1.5 text-muted">
         <Icon size={13} style={props.accent ? { color: props.accent } : undefined} />
         <span className="text-[11.5px] uppercase tracking-wide">{props.label}</span>
       </div>
-      <div className="text-[22px] font-semibold mt-2 leading-none tabular-nums flex items-baseline gap-1.5">
-        {props.value}
-        {props.suffix && <span className="text-[14px]">{props.suffix}</span>}
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="text-[30px] font-semibold leading-none tabular-nums">{props.value}</span>
+        {props.unit && <span className="text-[13px] text-muted">{props.unit}</span>}
       </div>
+      {props.hint && (
+        <div className="mt-2 text-[11.5px] text-faint leading-snug">{props.hint}</div>
+      )}
     </div>
   );
 }
 
-function formatHoursShort(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
+function formatHoursValue(minutes: number): string {
+  if (minutes < 60) return `${minutes}`;
   const hours = minutes / 60;
-  if (hours < 10) return `${hours.toFixed(1)}h`;
-  return `${Math.round(hours)}h`;
+  if (hours < 10) return hours.toFixed(1);
+  return `${Math.round(hours)}`;
 }
 
 function StatusIcon(props: { active: boolean; inWindow: boolean }) {
@@ -291,68 +332,6 @@ function StatusIcon(props: { active: boolean; inWindow: boolean }) {
     >
       <ShieldOff size={18} />
     </div>
-  );
-}
-
-function BrowserCacheHint() {
-  const [flushBusy, setFlushBusy] = useState(false);
-  const [flushFlash, setFlushFlash] = useState<'ok' | 'fail' | null>(null);
-  const [browserBusy, setBrowserBusy] = useState(false);
-
-  const flush = async () => {
-    setFlushBusy(true);
-    setFlushFlash(null);
-    try {
-      const r = await window.blocker.flushDnsNow();
-      setFlushFlash(r.ok ? 'ok' : 'fail');
-      setTimeout(() => setFlushFlash(null), 1800);
-    } finally {
-      setFlushBusy(false);
-    }
-  };
-
-  const openBrowserDns = async () => {
-    setBrowserBusy(true);
-    try {
-      await window.blocker.openBrowserDnsPage();
-    } finally {
-      setBrowserBusy(false);
-    }
-  };
-
-  return (
-    <>
-      <div className="divider" />
-      <div
-        className="px-5 py-3 text-[12.5px]"
-        style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
-      >
-        <div className="flex items-start gap-2">
-          <Info size={14} className="mt-0.5 shrink-0" />
-          <div className="flex-1 leading-relaxed">
-            Browsers keep their own DNS &amp; HTTP caches. After flushing the OS, click
-            <strong className="text-default"> Clear browser cache</strong> below to open
-            <code className="kbd ml-1">chrome://net-internals/#dns</code> in your default
-            browser — then click <em>"Clear host cache"</em> there. Or just hard-refresh
-            the tab with <span className="kbd">Ctrl + Shift + R</span>.
-          </div>
-        </div>
-        <div className="mt-2.5 ml-6 flex flex-wrap gap-1.5">
-          <button onClick={flush} disabled={flushBusy} className="btn btn-ghost">
-            {flushBusy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-            {flushFlash === 'ok' ? 'Flushed' : flushFlash === 'fail' ? 'Failed' : 'Flush OS DNS'}
-          </button>
-          <button onClick={openBrowserDns} disabled={browserBusy} className="btn btn-ghost">
-            {browserBusy ? <Loader2 size={13} className="animate-spin" /> : <ExternalLink size={13} />}
-            Clear browser cache
-          </button>
-        </div>
-        <div className="mt-2 ml-6 text-[11.5px] text-faint leading-relaxed">
-          Heads up: Brave / Chrome / Edge can use DNS-over-HTTPS, which bypasses the hosts file.
-          If a site still loads after both flushes, disable DoH in browser settings.
-        </div>
-      </div>
-    </>
   );
 }
 

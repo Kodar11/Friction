@@ -4,6 +4,9 @@ import { useResolvedTheme } from './hooks/useResolvedTheme';
 import { Sidebar, type Route } from './components/Sidebar';
 import { Header } from './components/Header';
 import { useConfig } from './hooks/useConfig';
+import { useStats } from './hooks/useStats';
+import { useMilestone } from './hooks/useMilestone';
+import { MilestoneCelebration } from './components/MilestoneCelebration';
 import { WelcomePage } from './pages/Welcome';
 import { DashboardPage } from './pages/Dashboard';
 import { SiteGroupsPage } from './pages/SiteGroups';
@@ -19,6 +22,10 @@ function App() {
   const [route, setRoute] = useState<Route>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { config } = useConfig();
+  const stats = useStats();
+  const { pending: pendingMilestone, acknowledge: acknowledgeMilestone } = useMilestone(
+    stats?.streak.current,
+  );
 
   useEffect(() => {
     if (config?.preferences.theme && config.preferences.theme !== theme) {
@@ -58,6 +65,7 @@ function App() {
           </main>
         </div>
       )}
+      <MilestoneCelebration milestone={pendingMilestone} onDismiss={acknowledgeMilestone} />
     </div>
   );
 }

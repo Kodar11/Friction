@@ -3,6 +3,7 @@ import { Clock, Pencil, Trash2 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { Timeline } from '../components/Timeline';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DayChips } from '../components/DayChips';
 
 export function SchedulePage() {
   const { config, update } = useConfig();
@@ -172,6 +173,9 @@ function BlockList(props: { config: BlockerConfig; onEdit: (id: string) => void;
               </div>
               <div className="text-[12.5px] text-muted mt-0.5">
                 {b.siteGroupIds.map(groupName).join(', ') || '(no groups)'}
+                {b.days.length < 7 && (
+                  <span className="text-faint"> · {dayChipSummary(b.days)}</span>
+                )}
               </div>
             </div>
             <div className="flex gap-1">
@@ -220,6 +224,11 @@ function BlockEditor(props: {
         </div>
         <div className="divider" />
         <div className="card-section space-y-4">
+          <div>
+            <div className="text-[11.5px] uppercase tracking-wide text-muted mb-1.5">Days</div>
+            <DayChips value={state.days} onChange={(next) => setField('days', next)} />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <TimeField label="Start" value={state.startMinute} onChange={(v) => setField('startMinute', v)} />
             <TimeField label="End" value={state.endMinute} onChange={(v) => setField('endMinute', v)} />
@@ -293,6 +302,15 @@ function fmt(m: number) {
   const h = Math.floor(m / 60).toString().padStart(2, '0');
   const mm = (m % 60).toString().padStart(2, '0');
   return `${h}:${mm}`;
+}
+function dayChipSummary(days: number[]): string {
+  const sorted = [...days].sort();
+  const weekdays = JSON.stringify(sorted) === JSON.stringify([1, 2, 3, 4, 5]);
+  const weekends = JSON.stringify(sorted) === JSON.stringify([0, 6]);
+  if (weekdays) return 'Weekdays';
+  if (weekends) return 'Weekends';
+  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return sorted.map((d) => labels[d]).join(', ');
 }
 function currentMinute() {
   const d = new Date();

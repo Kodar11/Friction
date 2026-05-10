@@ -16,13 +16,10 @@ import { ConfigStore } from './configStore.js';
 import { Logger } from '../service/logger.js';
 import { ActivityLogger } from '../service/activityLogger.js';
 import { registerIpc } from './ipc.js';
-import { isCurrentProcessAdmin } from './elevation.js';
-import { startBlockingRuntime, type BlockingRuntime } from '../service/runtime.js';
 import { TransitionNotifier } from './notifier.js';
 import { WeeklySummary } from './weeklySummary.js';
 
 let mainWindow: BrowserWindow | null = null;
-let blockingRuntime: BlockingRuntime | null = null;
 let notifier: TransitionNotifier | null = null;
 let weekly: WeeklySummary | null = null;
 let notifierTick: ReturnType<typeof setInterval> | null = null;
@@ -35,24 +32,10 @@ app.on('ready', async () => {
   // Ensure config exists on first run.
   const config = await store.readOrInitDefault();
 
-  // Run the in-process scheduler ONLY when the Electron process actually has
-  // admin rights to write the hosts file. If we don't, the Windows Service
-  // is the canonical writer — having an in-process runtime fail every minute
-  // with EPERM just stomps on the service's heartbeat and creates a
-  // permission-denied banner that never goes away.
-  const haveAdmin = await isCurrentProcessAdmin();
-  if (haveAdmin) {
-    logger.info('Running with admin rights; starting in-process blocking runtime.');
-    blockingRuntime = await startBlockingRuntime({
-      dir: userData,
-      logger,
-      configPath: store.filePath(),
-      hostsPath: process.env.FOCUS_BLOCKER_HOSTS_PATH,
-    });
-    await blockingRuntime.apply(config);
-  } else {
-    logger.info('Running unelevated; deferring blocking to the background service.');
-  }
+  // The Electron UI NEVER writes the hosts file directly.
+  // Blocking is always handled by the Windows Service (installed once via
+  // UAC). This keeps the UI unelevated and the service survives app restarts.
+  logger.info('App starting. Blocking is handled by the background service.');
 
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -88,10 +71,9 @@ app.on('ready', async () => {
   registerIpc({
     store,
     logger,
-    isAdmin: haveAdmin,
+    isAdmin: false,
     getMainWindow: () => mainWindow,
     onConfigChanged: async (cfg) => {
-      await blockingRuntime?.apply(cfg);
       notifier?.update(cfg);
       weekly?.update(cfg);
     },
@@ -104,7 +86,6 @@ app.on('ready', async () => {
     if (notifierTick) clearInterval(notifierTick);
     notifier?.stop();
     weekly?.stop();
-    void blockingRuntime?.stop();
   });
 });
 

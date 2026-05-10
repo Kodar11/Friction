@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { applyHosts, removeManagedRegion } from '../../src/service/hostsWriter/index.js';
+import { applyHosts, managedHostsMatch, removeManagedRegion } from '../../src/service/hostsWriter/index.js';
 import { HOSTS_BEGIN, HOSTS_END } from '../../src/shared/constants.js';
 
 let tmpDir: string;
@@ -71,6 +71,19 @@ describe('applyHosts', () => {
     const contents = await fs.readFile(hostsPath, 'utf8');
     expect(contents).not.toContain(HOSTS_BEGIN);
     expect(contents).toContain('127.0.0.1 localhost');
+  });
+
+  it('detects when the managed region matches the desired hosts', async () => {
+    await applyHosts({ hosts: ['youtube.com'], activeGroupNames: ['Social'], hostsPath });
+    await expect(
+      managedHostsMatch({ hosts: ['youtube.com'], activeGroupNames: ['Social'], hostsPath }),
+    ).resolves.toBe(true);
+  });
+
+  it('detects when the managed region is missing', async () => {
+    await expect(
+      managedHostsMatch({ hosts: ['youtube.com'], activeGroupNames: ['Social'], hostsPath }),
+    ).resolves.toBe(false);
   });
 });
 

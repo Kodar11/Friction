@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { getHostsFilePath } from '../paths.js';
-import { renderManagedRegion, spliceManaged } from './markers.js';
+import { HOSTS_BEGIN, HOSTS_END, REDIRECT_IP } from '../../shared/constants.js';
+import { hasManagedRegion, renderManagedRegion, spliceManaged } from './markers.js';
 import { expandAll } from './variants.js';
 
 export interface ApplyArgs {
@@ -72,6 +73,23 @@ export async function removeManagedRegion(hostsPath?: string): Promise<boolean> 
   return true;
 }
 
+/** True when the on-disk managed region already matches the desired hosts. */
+export async function managedHostsMatch(args: ApplyArgs): Promise<boolean> {
+  const target = args.hostsPath ?? getHostsFilePath();
+  const existing = await readOrEmpty(target);
+  const desired = expandAll(args.hosts);
+
+  if (desired.length === 0) return !hasManagedRegion(existing);
+  const actual = extractManagedHosts(existing);
+  if (!actual) return false;
+  if (actual.length !== desired.length) return false;
+
+  for (let i = 0; i < desired.length; i += 1) {
+    if (actual[i] !== desired[i]) return false;
+  }
+  return true;
+}
+
 async function readOrEmpty(target: string): Promise<string> {
   try {
     return await fs.readFile(target, 'utf8');
@@ -100,10 +118,40 @@ async function atomicWrite(target: string, contents: string): Promise<void> {
   try {
     await fs.rename(tmp, target);
   } catch (err: any) {
+    if (isPermissionError(err)) {
+      try {
+        // Some Windows security products and system-file semantics reject
+        // rename-over-target for hosts even when the process can overwrite
+        // the file contents. Keep the temp-file render, but fall back to a
+        // direct copy before surfacing a permission error.
+        await fs.copyFile(tmp, target);
+        await fs.unlink(tmp);
+        return;
+      } catch (copyErr: any) {
+        try { await fs.unlink(tmp); } catch {}
+        if (isPermissionError(copyErr)) throw new HostsPermissionError(target, copyErr);
+        throw copyErr;
+      }
+    }
     try { await fs.unlink(tmp); } catch {}
-    if (isPermissionError(err)) throw new HostsPermissionError(target, err);
     throw err;
   }
+}
+
+function extractManagedHosts(existing: string): string[] | null {
+  const lines = existing.split(/\r\n|\r|\n/);
+  const beginIdx = lines.findIndex((l) => l.trimEnd() === HOSTS_BEGIN);
+  const endIdx = lines.findIndex((l) => l.trimEnd() === HOSTS_END);
+  if (beginIdx < 0 || endIdx <= beginIdx) return null;
+
+  const hosts: string[] = [];
+  for (const line of lines.slice(beginIdx + 1, endIdx)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const parts = trimmed.split(/\s+/);
+    if (parts[0] === REDIRECT_IP && parts[1]) hosts.push(parts[1].toLowerCase());
+  }
+  return hosts.sort();
 }
 
 void os;

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bug, Download, ExternalLink, FolderOpen, Globe, Loader2, RefreshCw, RotateCcw, ShieldAlert, ShieldCheck, ShieldOff, Trash2, Upload } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
-import { useAdminState } from '../hooks/useAdminState';
 import { useThemeStore, type Theme } from '../store/themeStore';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -106,7 +105,7 @@ export function SettingsPage() {
         }}
       />
 
-      <AdminSection />
+      <ServiceSection />
 
       <Section title="Recovery" subtitle="Removes only the focus-blocker region between our markers; entries outside are untouched.">
         <div className="flex flex-wrap gap-2">
@@ -132,8 +131,6 @@ export function SettingsPage() {
       </Section>
 
       <ImportExportSection />
-
-      <ServiceSection />
 
       <Section title="Logs &amp; debug">
         <div className="flex items-center gap-2">
@@ -494,77 +491,6 @@ function FlushDnsButton() {
   );
 }
 
-function AdminSection() {
-  const adminState = useAdminState();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const onRelaunch = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await window.blocker.relaunchAsAdmin();
-      if (!r.ok) {
-        setError(r.error ?? 'Failed to elevate.');
-        setBusy(false);
-      }
-    } catch (err: any) {
-      setError(err?.message ?? String(err));
-      setBusy(false);
-    }
-  };
-
-  if (adminState === null) {
-    return (
-      <Section title="Permissions">
-        <span className="text-[12.5px] text-muted">Checking…</span>
-      </Section>
-    );
-  }
-
-  if (adminState.isAdmin) {
-    return (
-      <Section
-        title="Permissions"
-        subtitle="Focus Blocker has the rights it needs to edit your hosts file directly."
-      >
-        <span
-          className="chip"
-          style={{ background: 'var(--success-soft)', color: 'var(--success)', borderColor: 'transparent' }}
-        >
-          <ShieldCheck size={12} /> Running with administrator
-        </span>
-      </Section>
-    );
-  }
-
-  return (
-    <Section
-      title="Permissions"
-      subtitle="Focus Blocker needs admin rights once to edit C:\Windows\System32\drivers\etc\hosts. After that it just works."
-    >
-      <div className="flex items-center gap-3">
-        <span
-          className="chip"
-          style={{ background: 'var(--warning-soft)', color: 'var(--warning)', borderColor: 'transparent' }}
-        >
-          <ShieldAlert size={12} /> Running without administrator
-        </span>
-        <div className="flex-1" />
-        <button onClick={onRelaunch} disabled={busy} className="btn btn-primary">
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-          {busy ? 'Relaunching…' : 'Restart with admin'}
-        </button>
-      </div>
-      {error && (
-        <p className="text-[12px] mt-3" style={{ color: 'var(--danger)' }}>
-          {error}
-        </p>
-      )}
-    </Section>
-  );
-}
-
 function ServiceSection() {
   const [state, setState] = useState<ServiceState | null>(null);
   const [busy, setBusy] = useState<'install' | 'uninstall' | null>(null);
@@ -613,8 +539,8 @@ function ServiceSection() {
 
   return (
     <Section
-      title="Advanced: background service"
-      subtitle="Optional. Registers a Windows Service so blocking persists when the app is fully closed. Most users don't need this — relaunching with admin (above) is simpler."
+      title="Background service"
+      subtitle="Required for blocking. Installs once with a single UAC prompt, then starts automatically on boot and keeps blocking even when the app is closed."
     >
       <div className="flex items-center gap-3">
         <StatusPill state={state} />
@@ -644,7 +570,7 @@ function ServiceSection() {
       <ConfirmDialog
         open={confirmUninstall}
         title="Uninstall the background service?"
-        message="The service will be removed and the hosts file region will be cleaned. Blocking will stop unless you run the app as administrator."
+        message="The service will be removed and the hosts file region will be cleaned. Blocking will stop until you reinstall the service."
         confirmLabel="Uninstall"
         destructive
         onConfirm={onUninstall}

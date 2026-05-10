@@ -373,8 +373,8 @@ async function computeStatus(store: ConfigStore, heartbeat: HeartbeatReader): Pr
   // When we know the cause is permission, surface a clear actionable message
   // rather than the raw OS message.
   const lastError = permissionDenied
-    ? "Focus Blocker can't edit the system hosts file without admin permission. " +
-      'Install the background service (one-time) to fix this.'
+    ? "The background service can't edit the system hosts file. " +
+      'Reinstall the service (one-time admin prompt) to fix this.'
     : serviceOutOfDate
       ? 'Background service is out of date. Reinstall it to resume logging and stats.'
       : hb.data?.lastError ?? null;

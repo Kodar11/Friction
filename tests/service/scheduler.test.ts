@@ -100,6 +100,25 @@ describe('startScheduler', () => {
     handle.stop();
   });
 
+  it('rewrites when the managed region disappears externally', async () => {
+    const config = cfg(true);
+    const handle = startScheduler({
+      getConfig: () => config,
+      logger,
+      hostsPath,
+      tickMs: 1_000_000,
+    });
+    await handle.apply(config);
+    await fs.writeFile(hostsPath, '127.0.0.1 localhost\n', 'utf8');
+
+    await handle.apply(config);
+
+    const contents = await fs.readFile(hostsPath, 'utf8');
+    expect(contents).toContain(HOSTS_BEGIN);
+    expect(contents).toContain('127.0.0.1 youtube.com');
+    handle.stop();
+  });
+
   it('reports permission errors with kind="permission" via onError', async () => {
     // Point at a path we can't write to (a directory). On Windows that's
     // EISDIR which is "other"; on POSIX writing to "/" triggers EACCES which

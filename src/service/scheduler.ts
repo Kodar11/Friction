@@ -1,7 +1,7 @@
 import { evaluate, minuteOfDay } from '../shared/scheduleEngine.js';
 import { SCHEDULE_TICK_MS } from '../shared/constants.js';
 import type { BlockerConfig, ScheduleEvaluation } from '../shared/types.js';
-import { applyHosts, HostsPermissionError, removeManagedRegion } from './hostsWriter/index.js';
+import { applyHosts, HostsPermissionError, managedHostsMatch, removeManagedRegion } from './hostsWriter/index.js';
 import { flushDns } from './dnsFlush.js';
 import type { Logger } from './logger.js';
 
@@ -72,10 +72,19 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
       lastEval = evalResult;
       const key = evalResult.sites.join('|');
 
-      // Skip writes when we already wrote this exact set of hosts AND the last
-      // attempt didn't fail. If it failed, retry every tick so a now-elevated
-      // process can succeed without the user touching anything.
-      if (key === lastSitesKey && lastErrorKind === null) return;
+      // Skip writes only when our memory and the actual hosts file agree. The
+      // hosts file can be restored by another app, antivirus, Docker, or an
+      // older app instance; in that case we must rewrite even though the
+      // desired site set did not change.
+      if (key === lastSitesKey && lastErrorKind === null) {
+        const matches = await managedHostsMatch({
+          hosts: evalResult.sites,
+          activeGroupNames: evalResult.activeGroups.map((g) => g.groupName),
+          hostsPath: opts.hostsPath,
+        });
+        if (matches) return;
+        opts.logger.warn('Managed hosts region missing or stale; rewriting.');
+      }
 
       const changed = await applyHosts({
         hosts: evalResult.sites,

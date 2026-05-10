@@ -2,6 +2,8 @@
   "appId": "com.tanmaychavan.focusblocker",
   "productName": "Focus Blocker",
   "files": ["dist-electron", "dist-react"],
+  "asar": true,
+  "asarUnpack": ["dist-electron/**", "node_modules/node-windows/**"],
   "extraResources": ["dist-electron/electron/preload.cjs", "src/assets/**"],
   "icon": "./desktopIcon.png",
   "mac": {
@@ -12,6 +14,13 @@
     "category": "Utility"
   },
   "win": {
-    "target": ["portable", "msi"]
+    "target": ["nsis"]
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": true,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "include": "build/installer.nsh"
   }
 }

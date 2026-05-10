@@ -42,9 +42,15 @@ export async function startConfigWatcher(opts: WatcherOpts): Promise<ConfigWatch
       cached = next;
       return next;
     } catch (err: any) {
-      if (err.code !== 'ENOENT') opts.onError?.(err);
-      cached = null;
-      lastRaw = '';
+      if (err.code === 'ENOENT') {
+        cached = null;
+        lastRaw = '';
+        return null;
+      }
+      // Keep the last known-good config on parse/validation/read errors. A
+      // transient bad read must not be interpreted as "no config", because the
+      // scheduler treats null as a signal to clear the managed hosts region.
+      opts.onError?.(err);
       return null;
     }
   };

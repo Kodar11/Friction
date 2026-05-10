@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, AlertCircle, Flame, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { useStatus } from '../hooks/useStatus';
-import { useAdminState } from '../hooks/useAdminState';
+import { useServiceState } from '../hooks/useServiceState';
 import { useStats } from '../hooks/useStats';
 import { DeactivateDialog } from '../components/DeactivateDialog';
 import { Timeline } from '../components/Timeline';
@@ -17,7 +17,7 @@ interface DeactivateDialogState {
 export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
   const { config } = useConfig();
   const status = useStatus();
-  const adminState = useAdminState();
+  const serviceState = useServiceState();
   const { stats, error: statsError, loading: statsLoading, refresh: refreshStats } = useStats();
   const [busy, setBusy] = useState(false);
   const [dialogState, setDialogState] = useState<DeactivateDialogState | null>(null);
@@ -100,7 +100,7 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
         )}
       </div>
 
-      {adminState && !adminState.isAdmin && <AdminRelaunchBanner />}
+      {serviceState && !serviceState.installed && <ServiceInstallBanner />}
       {status?.serviceOutOfDate && (
         <ServiceOutOfDateBanner
           serviceVersion={status.serviceVersion}
@@ -386,21 +386,21 @@ function StatusIcon(props: { active: boolean; inWindow: boolean }) {
   );
 }
 
-function AdminRelaunchBanner() {
+function ServiceInstallBanner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onClick = async () => {
+  const onInstall = async () => {
     setBusy(true);
     setError(null);
     try {
-      const r = await window.blocker.relaunchAsAdmin();
+      const r = await window.blocker.installService();
       if (!r.ok) {
-        setError(r.error ?? 'Failed to elevate.');
+        setError(r.error ?? 'Install failed.');
         setBusy(false);
       }
-      // On success, the elevated instance is starting and we'll quit shortly.
-      // Leaving busy=true so the button stays in its loading state.
+      // On success, the service is starting. Leaving busy=true so the button
+      // stays in its loading state until the status poll refreshes.
     } catch (err: any) {
       setError(err?.message ?? String(err));
       setBusy(false);
@@ -424,12 +424,13 @@ function AdminRelaunchBanner() {
         </div>
         <div className="flex-1">
           <div className="text-[14.5px] font-semibold" style={{ color: 'var(--warning)' }}>
-            Admin permission needed to enable blocking
+            Install the background service to enable blocking
           </div>
           <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: 'var(--warning)', opacity: 0.85 }}>
-            Focus Blocker writes to <code className="kbd">C:\Windows\System32\drivers\etc\hosts</code>,
-            which Windows protects. Click below to relaunch the app with admin rights — one UAC prompt and
-            blocking just works.
+            Focus Blocker uses a Windows Service to edit{' '}
+            <code className="kbd">C:\Windows\System32\drivers\etc\hosts</code>. You only need to
+            approve the UAC prompt once during install — after that the service starts
+            automatically on boot and keeps blocking even when this window is closed.
           </p>
           {error && (
             <p className="text-[12px] mt-2" style={{ color: 'var(--danger)' }}>
@@ -438,7 +439,7 @@ function AdminRelaunchBanner() {
           )}
         </div>
         <button
-          onClick={onClick}
+          onClick={onInstall}
           disabled={busy}
           className="btn"
           style={{
@@ -448,7 +449,7 @@ function AdminRelaunchBanner() {
           }}
         >
           {busy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-          {busy ? 'Relaunching…' : 'Restart with admin'}
+          {busy ? 'Installing…' : 'Install service'}
         </button>
       </div>
     </section>

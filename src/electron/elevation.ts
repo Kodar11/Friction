@@ -12,10 +12,10 @@ export interface ElevationResult {
 /**
  * Install the FocusBlockerService via UAC elevation.
  *
- * Approach: use PowerShell `Start-Process -Verb RunAs` to launch `node.exe`
- * (from PATH) on our compiled install.cjs. Windows shows the UAC prompt; if
- * the user accepts, the elevated node process registers the service and
- * starts it. If they cancel, PowerShell exits non-zero.
+ * Approach: use PowerShell `Start-Process -Verb RunAs` to launch an elevated
+ * PowerShell child, then set ELECTRON_RUN_AS_NODE inside that elevated child
+ * before invoking our compiled install.cjs. Setting the env var in the parent
+ * process is not reliable across UAC.
  *
  * `-Wait` blocks until the elevated process exits so we know when to refresh
  * status in the UI.
@@ -33,7 +33,16 @@ export async function installServiceElevated(): Promise<ElevationResult> {
     };
   }
 
-  return runElevated('node', installScript);
+  const logPath = path.join(app.getPath('userData'), 'service-install.log');
+  return runElevated(process.execPath, [
+    installScript,
+    '--user-data',
+    app.getPath('userData'),
+    '--exec-path',
+    process.execPath,
+    '--log-file',
+    logPath,
+  ], logPath);
 }
 
 export async function uninstallServiceElevated(): Promise<ElevationResult> {
@@ -44,14 +53,45 @@ export async function uninstallServiceElevated(): Promise<ElevationResult> {
   if (!fs.existsSync(uninstallScript)) {
     return { ok: false, error: 'Uninstall script not found.' };
   }
-  return runElevated('node', uninstallScript);
+  const logPath = path.join(app.getPath('userData'), 'service-uninstall.log');
+  return runElevated(process.execPath, [
+    uninstallScript,
+    '--user-data',
+    app.getPath('userData'),
+    '--exec-path',
+    process.execPath,
+    '--log-file',
+    logPath,
+  ], logPath);
 }
 
-function runElevated(filePath: string, scriptPath: string): Promise<ElevationResult> {
-  // PowerShell: -Verb RunAs triggers UAC. -Wait keeps us blocked until the
-  // elevated child exits. Single-quoted PS strings to avoid escaping headaches.
-  const psQuoted = scriptPath.replace(/'/g, "''");
-  const command = `Start-Process -FilePath '${filePath}' -ArgumentList '"${psQuoted}"' -Verb RunAs -Wait -WindowStyle Hidden`;
+function runElevated(filePath: string, args: string[], logPath?: string): Promise<ElevationResult> {
+  // PowerShell: -Verb RunAs triggers UAC. Run a second PowerShell elevated so
+  // the Node-mode env var is set after elevation, where Electron will see it.
+  const psStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
+  const innerArgs = args.map(psStr).join(' ');
+  const innerCommand =
+    `$env:ELECTRON_RUN_AS_NODE = '1'; ` +
+    `& ${psStr(filePath)} ${innerArgs}; ` +
+    `exit $LASTEXITCODE`;
+  const argList = [
+    psStr('-NoProfile'),
+    psStr('-ExecutionPolicy'),
+    psStr('Bypass'),
+    psStr('-Command'),
+    psStr(innerCommand),
+  ].join(',');
+  const command =
+    `$p = Start-Process -FilePath 'powershell.exe' -ArgumentList @(${argList}) ` +
+    `-Verb RunAs -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode`;
+
+  if (logPath) {
+    try {
+      fs.rmSync(logPath, { force: true });
+    } catch {
+      // best effort; a stale log should not prevent the UAC prompt
+    }
+  }
 
   return new Promise((resolve) => {
     execFile(
@@ -59,7 +99,12 @@ function runElevated(filePath: string, scriptPath: string): Promise<ElevationRes
       ['-NoProfile', '-NonInteractive', '-Command', command],
       { windowsHide: true, timeout: 5 * 60 * 1000 },
       (err, _stdout, stderr) => {
+        const log = readFailureLog(logPath);
         if (!err) {
+          if (log && /\[error\]/i.test(log)) {
+            resolve({ ok: false, error: log });
+            return;
+          }
           resolve({ ok: true });
           return;
         }
@@ -69,11 +114,22 @@ function runElevated(filePath: string, scriptPath: string): Promise<ElevationRes
         if (/cancell?ed/i.test(msg) || /operation was cancelled/i.test(msg)) {
           resolve({ ok: false, error: 'Elevation was cancelled.' });
         } else {
-          resolve({ ok: false, error: msg.trim() || 'Failed to elevate.' });
+          resolve({ ok: false, error: [msg.trim(), log].filter(Boolean).join('\n\n') || 'Failed to elevate.' });
         }
       },
     );
   });
+}
+
+function readFailureLog(logPath?: string): string | null {
+  if (!logPath || !fs.existsSync(logPath)) return null;
+  try {
+    const raw = fs.readFileSync(logPath, 'utf8').trim();
+    if (!raw) return null;
+    return raw.split(/\r?\n/).slice(-30).join('\n');
+  } catch {
+    return null;
+  }
 }
 
 /**

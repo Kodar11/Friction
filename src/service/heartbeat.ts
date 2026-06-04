@@ -12,11 +12,16 @@ export class HeartbeatWriter {
   private lastError: string | null = null;
   private errorKind: 'permission' | 'other' | null = null;
   private lastFlushedAt: number | null = null;
+  private readonly startedAt: number;
+  private configReloadCount: number = 0;
+  private lastConfigReloadAt: number | null = null;
+  private lastHostsWriteAt: number | null = null;
 
   constructor(dir: string, opts?: { runtimeVersion?: string | null; schemaVersion?: number | null }) {
     this.file = path.join(dir, STATUS_FILENAME);
     this.runtimeVersion = opts?.runtimeVersion ?? null;
     this.schemaVersion = opts?.schemaVersion ?? null;
+    this.startedAt = Date.now();
   }
 
   setLastError(message: string | null, kind: 'permission' | 'other' | null = null) {
@@ -26,6 +31,19 @@ export class HeartbeatWriter {
 
   markFlushed(at: number = Date.now()) {
     this.lastFlushedAt = at;
+  }
+
+  markConfigReloaded() {
+    this.configReloadCount++;
+    this.lastConfigReloadAt = Date.now();
+  }
+
+  markHostsWritten() {
+    this.lastHostsWriteAt = Date.now();
+  }
+
+  setConfigSequence(seq: number) {
+    this.configReloadCount = seq;
   }
 
   /** Append-only write of the latest heartbeat. Errors here are swallowed. */
@@ -40,6 +58,10 @@ export class HeartbeatWriter {
       lastError: this.lastError,
       errorKind: this.errorKind,
       lastFlushedAt: this.lastFlushedAt,
+      startedAt: this.startedAt,
+      configReloadCount: this.configReloadCount,
+      lastConfigReloadAt: this.lastConfigReloadAt,
+      lastHostsWriteAt: this.lastHostsWriteAt,
     };
     const tmp = this.file + '.tmp';
     const body = JSON.stringify(payload);

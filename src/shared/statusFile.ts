@@ -26,4 +26,12 @@ export interface ServiceHeartbeat {
   errorKind?: 'permission' | 'other' | null;
   /** Wall-clock ms of the last successful DNS flush, or null if never. */
   lastFlushedAt?: number | null;
+  /** Wall-clock ms when the service process started (for uptime calculation). */
+  startedAt?: number;
+  /** Incremented each time the service successfully reloads config.json. */
+  configReloadCount?: number;
+  /** Wall-clock ms of the last successful config reload. */
+  lastConfigReloadAt?: number | null;
+  /** Wall-clock ms of the last successful hosts file write. */
+  lastHostsWriteAt?: number | null;
 }

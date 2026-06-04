@@ -54,7 +54,7 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
         try {
           const removed = await removeManagedRegion(opts.hostsPath);
           if (removed) {
-            opts.logger.info('No config present; cleared managed hosts region.');
+            opts.logger.info('[SERVICE] No config present; cleared managed hosts region.');
             await flushDns();
           }
         } catch (err) {
@@ -94,16 +94,16 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
 
       if (changed) {
         opts.logger.info(
-          `Hosts updated: ${evalResult.sites.length} entries; active groups=[${evalResult.activeGroups
+          `[SERVICE] Hosts updated: ${evalResult.sites.length} entries; active groups=[${evalResult.activeGroups
             .map((g) => g.groupName)
             .join(', ')}]`,
         );
         const flush = await flushDns();
         if (flush.ok) {
-          opts.logger.info('DNS flushed (ipconfig + ARP + destination cache).');
+          opts.logger.info('[SERVICE] DNS flushed (ipconfig + ARP + destination cache).');
           opts.onFlushed?.(Date.now());
         } else {
-          opts.logger.warn(`DNS flush failed: ${flush.error}`);
+          opts.logger.warn(`[SERVICE] DNS flush failed: ${flush.error}`);
         }
       }
 
@@ -127,13 +127,13 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
     if (isPerm) {
       // Don't spam the log every tick — log at info level and let the UI take it from here.
       if (lastErrorKind !== 'permission') {
-        opts.logger.warn(`Hosts file write permission denied — blocking is on hold until elevated.`);
+        opts.logger.warn('[SERVICE] Hosts file write permission denied — blocking is on hold until elevated.');
       }
       lastErrorKind = 'permission';
       opts.onError?.({ kind: 'permission', message });
     } else {
       if (lastErrorKind !== 'other') {
-        opts.logger.error(`Scheduler tick failed: ${message}`);
+        opts.logger.error(`[SERVICE] Scheduler tick failed: ${message}`);
       }
       lastErrorKind = 'other';
       opts.onError?.({ kind: 'other', message });

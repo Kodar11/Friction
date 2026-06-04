@@ -30,7 +30,9 @@ describe('ConfigStore', () => {
     expect(cfg.scheduleBlocks[0].days).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(cfg.hardMode.level).toBe('light');
     const again = await s.readIfExists();
-    expect(again).toEqual(cfg);
+    expect(again).not.toBeNull();
+    expect(again!.version).toBe(cfg.version);
+    expect(again!.configSequence).toBe(1);
   });
 
   it('rejects invalid config on write', async () => {

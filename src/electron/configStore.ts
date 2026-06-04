@@ -77,9 +77,10 @@ export class ConfigStore {
     return fresh;
   }
 
-  /** Validate and atomically write the given config. */
+  /** Validate and atomically write the given config. Increments configSequence. */
   async write(config: BlockerConfig): Promise<void> {
     const validated = blockerConfigSchema.parse(config);
+    validated.configSequence = (validated.configSequence ?? 0) + 1;
     const body = JSON.stringify(validated, null, 2) + '\n';
     const tmp = this.file + '.tmp';
     const handle = await fsp.open(tmp, 'w');

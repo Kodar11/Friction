@@ -7,7 +7,7 @@ const fs = require('fs');
 const cp = require('child_process');
 
 if (process.platform !== 'win32') {
-  console.error('This uninstaller only supports Windows.');
+  console.error('[SERVICE] This uninstaller only supports Windows.');
   process.exit(1);
 }
 

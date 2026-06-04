@@ -27,7 +27,7 @@ export async function startBlockingRuntime(opts: BlockingRuntimeOpts): Promise<B
   });
   const activity = new ActivityLogger({ dir: opts.dir });
   const configName = opts.configPath.split(/[/\\]/).pop() ?? CONFIG_FILENAME;
-  opts.logger.info(`Blocking runtime starting. config=${configName}`);
+  opts.logger.info(`[SERVICE] Blocking runtime starting. config=${configName}`);
 
   let watcher: ConfigWatcher | null = null;
   let scheduler: SchedulerHandle | null = null;
@@ -39,15 +39,25 @@ export async function startBlockingRuntime(opts: BlockingRuntimeOpts): Promise<B
   watcher = await startConfigWatcher({
     path: opts.configPath,
     onChange: (cfg) => {
-      opts.logger.info('Config changed; re-evaluating blocking state.');
+      opts.logger.info('[SERVICE] Config changed; re-evaluating blocking state.');
+      heartbeat.markConfigReloaded();
+      if (cfg.configSequence != null) {
+        heartbeat.setConfigSequence(cfg.configSequence);
+      }
       void scheduler?.apply(cfg);
     },
     onError: (err) => {
       const msg = err instanceof Error ? err.message : String(err);
-      opts.logger.error(`Config watcher error: ${msg}`);
+      opts.logger.error(`[SERVICE] Config watcher error: ${msg}`);
       heartbeat.setLastError(msg);
     },
   });
+
+  // Seed the heartbeat with the initial config sequence if available.
+  const initialSeq = watcher.lastSequence();
+  if (initialSeq != null) {
+    heartbeat.setConfigSequence(initialSeq);
+  }
 
   scheduler = startScheduler({
     getConfig: () => watcher?.current() ?? null,
@@ -56,6 +66,7 @@ export async function startBlockingRuntime(opts: BlockingRuntimeOpts): Promise<B
     tickMs: opts.tickMs ?? SCHEDULE_TICK_MS,
     onApplied: (ev) => {
       heartbeat.setLastError(null);
+      heartbeat.markHostsWritten();
       heartbeat.write(ev);
       // Activity log: only append on actual state changes so we don't grow
       // the file by 1 line per minute for no reason.

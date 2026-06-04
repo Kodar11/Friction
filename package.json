@@ -11,6 +11,7 @@
     "service:dev": "npm run transpile:electron && cross-env NODE_ENV=development node dist-electron/service/index.js",
     "service:install": "npm run transpile:electron && node dist-electron/service/install.cjs",
     "service:uninstall": "node dist-electron/service/uninstall.cjs",
+    "service:test": "npm run transpile:electron && node dist-electron/service/selfTest.cjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "transpile:electron": "tsc --project src/electron/tsconfig.json",

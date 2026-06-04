@@ -9,6 +9,10 @@ export interface HeartbeatSnapshot {
   /** ms since last heartbeat write, or null if no file. */
   ageMs: number | null;
   data: ServiceHeartbeat | null;
+  /** Config sequence the service last saw. Compare with config.configSequence to verify sync. */
+  configSequence: number | null;
+  /** Uptime in ms, derived from startedAt timestamp. */
+  uptimeMs: number | null;
 }
 
 export class HeartbeatReader {
@@ -22,13 +26,16 @@ export class HeartbeatReader {
       const raw = await fsp.readFile(this.file, 'utf8');
       const data = JSON.parse(raw) as ServiceHeartbeat;
       const age = Date.now() - data.writtenAt;
+      const uptime = data.startedAt ? Date.now() - data.startedAt : null;
       return {
         alive: age >= 0 && age <= HEARTBEAT_FRESHNESS_MS,
         ageMs: age,
         data,
+        configSequence: data.configReloadCount ?? null,
+        uptimeMs: uptime,
       };
     } catch {
-      return { alive: false, ageMs: null, data: null };
+      return { alive: false, ageMs: null, data: null, configSequence: null, uptimeMs: null };
     }
   }
 }

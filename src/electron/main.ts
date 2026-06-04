@@ -80,7 +80,7 @@ app.on('ready', async () => {
   });
   createTray(mainWindow);
   handleCloseEvents(mainWindow);
-  logger.info('App ready.');
+  logger.info('[UI] App ready.');
 
   app.on('before-quit', () => {
     if (notifierTick) clearInterval(notifierTick);

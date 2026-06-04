@@ -19,6 +19,8 @@ export interface ConfigWatcher {
   current(): BlockerConfig | null;
   refresh(): Promise<BlockerConfig | null>;
   close(): Promise<void>;
+  /** The configSequence from the most recent successful config load. */
+  lastSequence(): number | null;
 }
 
 export interface WatcherOpts {
@@ -30,6 +32,7 @@ export interface WatcherOpts {
 export async function startConfigWatcher(opts: WatcherOpts): Promise<ConfigWatcher> {
   let cached: BlockerConfig | null = null;
   let lastRaw = '';
+  let lastSeq: number | null = null;
 
   const refresh = async (): Promise<BlockerConfig | null> => {
     try {
@@ -40,11 +43,13 @@ export async function startConfigWatcher(opts: WatcherOpts): Promise<ConfigWatch
       const { config } = migrateConfig(parsed);
       const next = blockerConfigSchema.parse(config) as BlockerConfig;
       cached = next;
+      lastSeq = next.configSequence ?? null;
       return next;
     } catch (err: any) {
       if (err.code !== 'ENOENT') opts.onError?.(err);
       cached = null;
       lastRaw = '';
+      lastSeq = null;
       return null;
     }
   };
@@ -69,5 +74,6 @@ export async function startConfigWatcher(opts: WatcherOpts): Promise<ConfigWatch
     current: () => cached,
     refresh,
     close: () => watcher.close(),
+    lastSequence: () => lastSeq,
   };
 }

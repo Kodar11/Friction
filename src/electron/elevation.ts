@@ -2,11 +2,48 @@ import { execFile } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { app } from 'electron';
+import { isDev } from './util.js';
 
 export interface ElevationResult {
   ok: boolean;
   /** User-friendly error to render in the UI. */
   error?: string;
+}
+
+/**
+ * Resolve the path to a service script (install/uninstall).
+ * Handles both dev mode (dist-electron) and production (app.asar unpacked).
+ */
+function resolveServiceScript(filename: string): string | null {
+  const appPath = app.getAppPath();
+  
+  // In production, scripts are in the app.asar unpacked dist-electron folder
+  const prodPath = path.join(appPath, 'dist-electron', 'service', filename);
+  
+  // In dev mode, dist-electron is at project root
+  const devPath = isDev()
+    ? path.join(process.cwd(), 'dist-electron', 'service', filename)
+    : null;
+  
+  // Try .cjs first (production transpilation), then .js (dev transpilation)
+  const extensions = ['.cjs', '.js'];
+  
+  for (const basePath of [prodPath, devPath].filter(Boolean)) {
+    for (const ext of extensions) {
+      const candidate = basePath!.replace(/\.(cts|cts)$/, ext).replace(/\.cjs$/, ext).replace(/\.js$/, ext);
+      // Try with the exact filename first, then with replaced extension
+      const fullPath = path.join(path.dirname(basePath!), path.basename(filename).replace(/\.(cts|cts)$/, ext));
+      if (fs.existsSync(fullPath)) {
+        return fullPath;
+      }
+    }
+  }
+  
+  // Fallback: try the original filename as-is
+  if (fs.existsSync(prodPath)) return prodPath;
+  if (devPath && fs.existsSync(devPath)) return devPath;
+  
+  return null;
 }
 
 /**
@@ -25,11 +62,11 @@ export async function installServiceElevated(): Promise<ElevationResult> {
     return { ok: false, error: 'The background service is Windows-only.' };
   }
 
-  const installScript = path.join(app.getAppPath(), 'dist-electron', 'service', 'install.cjs');
-  if (!fs.existsSync(installScript)) {
+  const installScript = resolveServiceScript('install.cjs');
+  if (!installScript) {
     return {
       ok: false,
-      error: `Install script not found at ${installScript}. Run \`npm run transpile:electron\` first.`,
+      error: `Install script not found. Run \`npm run transpile:electron\` first.`,
     };
   }
 
@@ -40,8 +77,8 @@ export async function uninstallServiceElevated(): Promise<ElevationResult> {
   if (process.platform !== 'win32') {
     return { ok: false, error: 'The background service is Windows-only.' };
   }
-  const uninstallScript = path.join(app.getAppPath(), 'dist-electron', 'service', 'uninstall.cjs');
-  if (!fs.existsSync(uninstallScript)) {
+  const uninstallScript = resolveServiceScript('uninstall.cjs');
+  if (!uninstallScript) {
     return { ok: false, error: 'Uninstall script not found.' };
   }
   return runElevated('node', uninstallScript);
@@ -52,6 +89,8 @@ function runElevated(filePath: string, scriptPath: string): Promise<ElevationRes
   // elevated child exits. Single-quoted PS strings to avoid escaping headaches.
   const psQuoted = scriptPath.replace(/'/g, "''");
   const command = `Start-Process -FilePath '${filePath}' -ArgumentList '"${psQuoted}"' -Verb RunAs -Wait -WindowStyle Hidden`;
+
+  console.log(`[UI] Elevating: ${scriptPath}`);
 
   return new Promise((resolve) => {
     execFile(

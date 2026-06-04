@@ -65,6 +65,10 @@ export interface BlockerConfig {
   preferences: Preferences;
   hardMode: HardModeSettings;
   stats: StatsState;
+  /** Monotonically increasing sequence number. Incremented on every config save.
+   *  The service echoes the last seen value in its heartbeat so the UI can
+   *  verify that config changes have propagated. */
+  configSequence?: number;
 }
 
 /** Minimal v1 shape we still need to recognise during migration. Fields
@@ -99,6 +103,10 @@ export interface BlockerStatus {
   nextChange: { atMinute: number; willBlock: string[] } | null;
   lastError: string | null;
   lastFlushedAt: number | null;
+  /** True if the service has seen the latest config (configSequence matches). */
+  configSynced?: boolean;
+  /** Service uptime in ms, or null if service not running. */
+  serviceUptimeMs?: number | null;
 }
 
 export interface LogEntry {

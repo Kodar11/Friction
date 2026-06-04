@@ -42,7 +42,7 @@ app.on('ready', async () => {
   // permission-denied banner that never goes away.
   const haveAdmin = await isCurrentProcessAdmin();
   if (haveAdmin) {
-    logger.info('Running with admin rights; starting in-process blocking runtime.');
+    logger.info('[UI] Running with admin rights; starting in-process blocking runtime.');
     blockingRuntime = await startBlockingRuntime({
       dir: userData,
       logger,
@@ -51,7 +51,7 @@ app.on('ready', async () => {
     });
     await blockingRuntime.apply(config);
   } else {
-    logger.info('Running unelevated; deferring blocking to the background service.');
+    logger.info('[UI] Running unelevated; deferring blocking to the background service.');
   }
 
   mainWindow = new BrowserWindow({
@@ -98,7 +98,7 @@ app.on('ready', async () => {
   });
   createTray(mainWindow);
   handleCloseEvents(mainWindow);
-  logger.info('App ready.');
+  logger.info('[UI] App ready.');
 
   app.on('before-quit', () => {
     if (notifierTick) clearInterval(notifierTick);

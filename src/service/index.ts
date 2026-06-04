@@ -26,7 +26,7 @@ function userDataDir(): string {
 async function main() {
   const dir = userDataDir();
   const logger = new Logger({ dir, source: 'service' });
-  logger.info(`Service starting. userData=${dir}`);
+  logger.info(`[SERVICE] Starting. userData=${dir}`);
 
   const runtime = await startBlockingRuntime({
     dir,
@@ -35,8 +35,10 @@ async function main() {
     hostsPath: process.env.FOCUS_BLOCKER_HOSTS_PATH,
   });
 
+  logger.info('[SERVICE] Runtime initialized. Blocking engine active.');
+
   const shutdown = async (reason: string) => {
-    logger.info(`Service shutting down: ${reason}`);
+    logger.info(`[SERVICE] Shutting down: ${reason}`);
     await runtime.stop();
     process.exit(0);
   };
@@ -44,10 +46,10 @@ async function main() {
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('uncaughtException', (err) => {
-    logger.error(`Uncaught exception: ${err?.message ?? err}\n${err?.stack ?? ''}`);
+    logger.error(`[SERVICE] Uncaught exception: ${err?.message ?? err}\n${err?.stack ?? ''}`);
   });
   process.on('unhandledRejection', (err: any) => {
-    logger.error(`Unhandled rejection: ${err?.message ?? err}`);
+    logger.error(`[SERVICE] Unhandled rejection: ${err?.message ?? err}`);
   });
 }
 

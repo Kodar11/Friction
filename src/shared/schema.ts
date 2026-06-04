@@ -68,6 +68,7 @@ export const blockerConfigSchema = z.object({
   preferences: preferencesSchema,
   hardMode: hardModeSchema,
   stats: statsStateSchema,
+  configSequence: z.number().int().nonnegative().optional(),
 });
 
 export type ParsedConfig = z.infer<typeof blockerConfigSchema>;

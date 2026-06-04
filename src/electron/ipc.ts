@@ -45,13 +45,13 @@ export function registerIpc(deps: IpcDeps): () => void {
     try {
       await store.write(cfg);
       await onConfigChanged?.(cfg);
-      logger.info('Config written from app.');
+      logger.info('[UI] Config saved.');
       const win = getMainWindow();
       if (win) ipcWebContentsSend('config-changed', win.webContents, cfg);
       return { ok: true };
     } catch (err: any) {
       const message = err?.message ?? String(err);
-      logger.error(`saveConfig failed: ${message}`);
+      logger.error(`[UI] saveConfig failed: ${message}`);
       return { ok: false, error: message };
     }
   });
@@ -85,10 +85,10 @@ export function registerIpc(deps: IpcDeps): () => void {
         buildDeactivationEntry(level, payload?.reason ?? null),
       );
       await store.write(cfg);
-      logger.info(`Deactivation logged (level=${level}).`);
+      logger.info(`[UI] Deactivation logged (level=${level}).`);
       return await flipActive(store, false, logger, getMainWindow(), heartbeat, onConfigChanged);
     } catch (err: any) {
-      logger.error(`completeDeactivate failed: ${err?.message ?? err}`);
+      logger.error(`[UI] completeDeactivate failed: ${err?.message ?? err}`);
       return { ok: false };
     }
   });
@@ -102,12 +102,12 @@ export function registerIpc(deps: IpcDeps): () => void {
         buildCancelledEntry(level, payload?.reason ?? null),
       );
       await store.write(cfg);
-      logger.info(`Deactivation cancelled (level=${level}).`);
+      logger.info(`[UI] Deactivation cancelled (level=${level}).`);
       const win = getMainWindow();
       if (win) ipcWebContentsSend('config-changed', win.webContents, cfg);
       return { ok: true };
     } catch (err: any) {
-      logger.error(`cancelDeactivate failed: ${err?.message ?? err}`);
+      logger.error(`[UI] cancelDeactivate failed: ${err?.message ?? err}`);
       return { ok: false };
     }
   });
@@ -118,12 +118,12 @@ export function registerIpc(deps: IpcDeps): () => void {
       const cfg = await store.readOrInitDefault();
       cfg.hardMode.level = level;
       await store.write(cfg);
-      logger.info(`Hard Mode set to ${level}.`);
+      logger.info(`[UI] Hard Mode set to ${level}.`);
       const win = getMainWindow();
       if (win) ipcWebContentsSend('config-changed', win.webContents, cfg);
       return { ok: true };
     } catch (err: any) {
-      logger.error(`setHardMode failed: ${err?.message ?? err}`);
+      logger.error(`[UI] setHardMode failed: ${err?.message ?? err}`);
       return { ok: false };
     }
   });
@@ -158,17 +158,17 @@ export function registerIpc(deps: IpcDeps): () => void {
   ipcMainHandle('exportSchedule', async () => {
     const cfg = await store.readOrInitDefault();
     const result = await exportToFile(cfg, getMainWindow());
-    if (result.ok) logger.info(`Schedule exported to ${result.path}`);
-    else if (!result.cancelled) logger.warn(`Export failed: ${result.error}`);
+    if (result.ok) logger.info(`[UI] Schedule exported to ${result.path}`);
+    else if (!result.cancelled) logger.warn(`[UI] Export failed: ${result.error}`);
     return result;
   });
 
   ipcMainHandle('importSchedule', async () => {
     const result = await importFromFile(getMainWindow());
     if (result.ok) {
-      logger.info(`Schedule preview parsed (${result.preview?.scheduleBlocks.length ?? 0} blocks).`);
+      logger.info(`[UI] Schedule preview parsed (${result.preview?.scheduleBlocks.length ?? 0} blocks).`);
     } else if (!result.cancelled) {
-      logger.warn(`Import failed: ${result.error}`);
+      logger.warn(`[UI] Import failed: ${result.error}`);
     }
     return result;
   });
@@ -184,12 +184,12 @@ export function registerIpc(deps: IpcDeps): () => void {
       cfg.active = false;
       await store.write(cfg);
       await onConfigChanged?.(cfg);
-      logger.info('Imported schedule applied (active reset to false).');
+      logger.info('[UI] Imported schedule applied (active reset to false).');
       const win = getMainWindow();
       if (win) ipcWebContentsSend('config-changed', win.webContents, cfg);
       return { ok: true };
     } catch (err: any) {
-      logger.error(`applyImportedSchedule failed: ${err?.message ?? err}`);
+      logger.error(`[UI] applyImportedSchedule failed: ${err?.message ?? err}`);
       return { ok: false, error: err?.message ?? String(err) };
     }
   });
@@ -197,10 +197,10 @@ export function registerIpc(deps: IpcDeps): () => void {
   ipcMainHandle('restoreHostsFile', async () => {
     try {
       await removeManagedRegion();
-      logger.info('Restore: managed hosts region cleared.');
+      logger.info('[UI] Restore: managed hosts region cleared.');
       return { ok: true };
     } catch (err: any) {
-      logger.error(`restoreHostsFile failed: ${err?.message ?? err}`);
+      logger.error(`[UI] restoreHostsFile failed: ${err?.message ?? err}`);
       return { ok: false };
     }
   });
@@ -223,16 +223,16 @@ export function registerIpc(deps: IpcDeps): () => void {
   ipcMainHandle('getAdminState', async () => ({ isAdmin }));
 
   ipcMainHandle('flushDnsNow', async () => {
-    logger.info('Manual DNS flush requested.');
+    logger.info('[UI] Manual DNS flush requested.');
     return await flushDns();
   });
 
   ipcMainHandle('relaunchAsAdmin', async () => {
     if (isAdmin) return { ok: true };
-    logger.info('User requested admin relaunch.');
+    logger.info('[UI] User requested admin relaunch.');
     const result = await relaunchAsAdmin();
     if (!result.ok) {
-      logger.warn(`Relaunch as admin failed: ${result.error}`);
+      logger.warn(`[UI] Relaunch as admin failed: ${result.error}`);
       return result;
     }
     if (isDev()) {
@@ -243,9 +243,9 @@ export function registerIpc(deps: IpcDeps): () => void {
       // the tray menu when they're done.
       const win = getMainWindow();
       if (win) win.hide();
-      logger.info('Dev mode: hid unprivileged instance to keep Vite alive.');
+      logger.info('[UI] Dev mode: hid unprivileged instance to keep Vite alive.');
     } else {
-      logger.info('Admin instance spawned, quitting unprivileged instance.');
+      logger.info('[UI] Admin instance spawned, quitting unprivileged instance.');
       setTimeout(() => app.quit(), 1000);
     }
     return result;
@@ -272,23 +272,23 @@ export function registerIpc(deps: IpcDeps): () => void {
   });
 
   ipcMainHandle('installService', async () => {
-    logger.info('Install requested via UI.');
+    logger.info('[UI] Service install requested.');
     const result = await installServiceElevated();
     if (result.ok) {
-      logger.info('Service install completed.');
+      logger.info('[UI] Service install completed.');
       // Push status promptly so UI updates without waiting for the next poll.
       void pushStatus();
     } else {
-      logger.warn(`Service install failed: ${result.error}`);
+      logger.warn(`[UI] Service install failed: ${result.error}`);
     }
     return result;
   });
 
   ipcMainHandle('uninstallService', async () => {
-    logger.info('Uninstall requested via UI.');
+    logger.info('[UI] Service uninstall requested.');
     const result = await uninstallServiceElevated();
-    if (result.ok) logger.info('Service uninstall completed.');
-    else logger.warn(`Service uninstall failed: ${result.error}`);
+    if (result.ok) logger.info('[UI] Service uninstall completed.');
+    else logger.warn(`[UI] Service uninstall failed: ${result.error}`);
     return result;
   });
 
@@ -337,7 +337,7 @@ async function flipActive(
     }
     await store.write(cfg);
     await onConfigChanged?.(cfg);
-    logger.info(`Active flipped: ${active}`);
+    logger.info(`[UI] Active flipped: ${active}`);
 
     // Belt-and-suspenders: the runtime already flushes DNS whenever the hosts
     // file changes, but we explicitly flush again on every Activate/Deactivate
@@ -345,9 +345,9 @@ async function flipActive(
     // re-activate when already active, etc.).
     const flush = await flushDns();
     if (flush.ok) {
-      logger.info(`DNS flushed after ${active ? 'activate' : 'deactivate'}.`);
+      logger.info(`[UI] DNS flushed after ${active ? 'activate' : 'deactivate'}.`);
     } else {
-      logger.warn(`DNS flush after ${active ? 'activate' : 'deactivate'} failed: ${flush.error}`);
+      logger.warn(`[UI] DNS flush after ${active ? 'activate' : 'deactivate'} failed: ${flush.error}`);
     }
 
     if (win) {
@@ -356,7 +356,7 @@ async function flipActive(
     }
     return { ok: true };
   } catch (err: any) {
-    logger.error(`flipActive(${active}) failed: ${err?.message ?? err}`);
+    logger.error(`[UI] flipActive(${active}) failed: ${err?.message ?? err}`);
     return { ok: false };
   }
 }
@@ -392,5 +392,7 @@ async function computeStatus(store: ConfigStore, heartbeat: HeartbeatReader): Pr
       : { atMinute: ev.nextChangeAtMinute, willBlock: [] },
     lastError,
     lastFlushedAt: hb.data?.lastFlushedAt ?? null,
+    configSynced: hb.configSequence != null && hb.configSequence === (cfg.configSequence ?? 0),
+    serviceUptimeMs: hb.uptimeMs,
   };
 }

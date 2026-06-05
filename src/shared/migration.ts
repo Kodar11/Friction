@@ -17,7 +17,19 @@ export function migrateConfig(raw: unknown): { config: BlockerConfig; migrated: 
   const v = (raw as { version?: unknown }).version;
 
   if (v === 2) {
-    return { config: raw as BlockerConfig, migrated: false, from: 2 };
+    const cfg = raw as BlockerConfig;
+    let migrated = false;
+    if (!Array.isArray(cfg.blockedApplications)) {
+      cfg.blockedApplications = [];
+      migrated = true;
+    }
+    for (const block of cfg.scheduleBlocks) {
+      if (block.blockApplications === undefined) {
+        block.blockApplications = true;
+        migrated = true;
+      }
+    }
+    return { config: cfg, migrated, from: 2 };
   }
 
   if (v === 1 || v === undefined) {
@@ -42,6 +54,7 @@ function v1ToV2(input: Partial<BlockerConfigV1>): BlockerConfig {
       // Per the plan: pre-v2 blocks are filled with all-week so behaviour
       // is preserved exactly.
       days: Array.isArray(b.days) && b.days.length > 0 ? [...b.days] : allDays,
+      blockApplications: true,
       siteGroupIds: b.siteGroupIds,
     })),
     preferences: {
@@ -60,5 +73,6 @@ function v1ToV2(input: Partial<BlockerConfigV1>): BlockerConfig {
       lastActiveDate: null,
       deactivationLog: [],
     },
+    blockedApplications: [],
   };
 }

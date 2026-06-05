@@ -49,7 +49,7 @@ export async function exportToFile(
       title: 'Export schedule',
       defaultPath: defaultExportName(),
       filters: [
-        { name: 'Focus Blocker schedule', extensions: ['fblock'] },
+        { name: 'Friction schedule', extensions: ['fblock'] },
         { name: 'JSON', extensions: ['json'] },
       ],
     };
@@ -83,7 +83,7 @@ export async function importFromFile(parent: BrowserWindow | null): Promise<Impo
     const opts: Electron.OpenDialogOptions = {
       title: 'Import schedule',
       filters: [
-        { name: 'Focus Blocker schedule', extensions: ['fblock'] },
+        { name: 'Friction schedule', extensions: ['fblock'] },
         { name: 'JSON', extensions: ['json'] },
         { name: 'All files', extensions: ['*'] },
       ],
@@ -130,7 +130,7 @@ function defaultExportName(): string {
   const yyyy = d.getFullYear().toString().padStart(4, '0');
   const mm = (d.getMonth() + 1).toString().padStart(2, '0');
   const dd = d.getDate().toString().padStart(2, '0');
-  return `focus-blocker-${yyyy}-${mm}-${dd}.fblock`;
+  return `friction-${yyyy}-${mm}-${dd}.fblock`;
 }
 
 function humanZodError(issues: { path: (string | number)[]; message: string }[]): string {

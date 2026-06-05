@@ -77,7 +77,7 @@ export function SettingsPage() {
 
       <Section title="Startup">
         <ToggleRow
-          label="Open Focus Blocker when I sign in"
+          label="Open Friction when I sign in"
           description="The window appears at login. Blocking continues regardless once the service is installed."
           checked={config.preferences.autoLaunchOnBoot}
           onChange={async (v) => {
@@ -107,7 +107,7 @@ export function SettingsPage() {
 
       <ServiceSection />
 
-      <Section title="Recovery" subtitle="Removes only the focus-blocker region between our markers; entries outside are untouched.">
+      <Section title="Recovery" subtitle="Removes only the friction region between our markers; entries outside are untouched.">
         <div className="flex flex-wrap gap-2">
           <FlushDnsButton />
           <BrowserDnsButton />
@@ -165,7 +165,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmRestore}
         title="Restore the hosts file?"
-        message="This removes Focus Blocker's managed region from your hosts file. Blocking will stop until you re-activate."
+        message="This removes Friction's managed region from your hosts file. Blocking will stop until you re-activate."
         confirmLabel="Restore"
         onConfirm={onRestore}
         onCancel={() => setConfirmRestore(false)}
@@ -179,7 +179,7 @@ export function SettingsPage() {
 const HARD_MODE_LEVELS: { id: HardModeLevel; title: string; description: string }[] = [
   { id: 'off', title: 'Off', description: 'Deactivate instantly with no friction.' },
   { id: 'light', title: 'Light', description: 'A simple confirm dialog before deactivating. Default.' },
-  { id: 'medium', title: 'Medium', description: 'Type the exact phrase “DEACTIVATE FOCUS BLOCKER” to deactivate.' },
+  { id: 'medium', title: 'Medium', description: 'Type the exact phrase “DEACTIVATE FRICTION” to deactivate.' },
   { id: 'hard', title: 'Hard', description: '5-minute cool-down + a required reason that gets logged.' },
   { id: 'extreme', title: 'Extreme', description: 'Same as Hard, but blocking can\'t be deactivated during a scheduled window at all.' },
 ];

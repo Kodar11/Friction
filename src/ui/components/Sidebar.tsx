@@ -1,6 +1,6 @@
-import { BarChart3, LayoutDashboard, Layers, CalendarClock, Settings as SettingsIcon, Shield, type LucideIcon } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Layers, CalendarClock, Settings as SettingsIcon, Shield, Monitor, type LucideIcon } from 'lucide-react';
 
-export type Route = 'dashboard' | 'groups' | 'schedule' | 'stats' | 'settings';
+export type Route = 'dashboard' | 'groups' | 'apps' | 'schedule' | 'stats' | 'settings';
 
 interface SidebarProps {
   route: Route;
@@ -13,6 +13,7 @@ interface SidebarProps {
 const ITEMS: { id: Route; label: string; Icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'groups', label: 'Site groups', Icon: Layers },
+  { id: 'apps', label: 'Applications', Icon: Monitor },
   { id: 'schedule', label: 'Schedule', Icon: CalendarClock },
   { id: 'stats', label: 'Stats', Icon: BarChart3 },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },
@@ -39,7 +40,7 @@ export function Sidebar({ route, onNavigate, active, open }: SidebarProps) {
             <Shield size={15} strokeWidth={2.25} />
           </div>
           <div className="leading-tight">
-            <div className="text-[13.5px] font-semibold text-default">Focus Blocker</div>
+            <div className="text-[13.5px] font-semibold text-default">Friction</div>
             <div className="text-[11.5px] text-muted mt-0.5 inline-flex items-center gap-1.5">
               <span
                 className="inline-block h-1.5 w-1.5 rounded-full"

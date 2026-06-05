@@ -3,6 +3,7 @@ import { SCHEDULE_TICK_MS } from '../shared/constants.js';
 import type { BlockerConfig, ScheduleEvaluation } from '../shared/types.js';
 import { applyHosts, HostsPermissionError, managedHostsMatch, removeManagedRegion } from './hostsWriter/index.js';
 import { flushDns } from './dnsFlush.js';
+import { ProcessBlocker, APP_TICK_MS } from './processBlocker.js';
 import type { Logger } from './logger.js';
 
 /**
@@ -32,6 +33,7 @@ export interface SchedulerOpts {
   logger: Logger;
   hostsPath?: string;
   tickMs?: number;
+  appTickMs?: number;
   onApplied?: (evalResult: ScheduleEvaluation) => void;
   /** Called when apply fails. Includes a kind so the UI can render an actionable message. */
   onError?: (err: SchedulerError) => void;
@@ -43,6 +45,8 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
   let lastSitesKey = '__init__';
   let lastEval: ScheduleEvaluation | null = null;
   let lastErrorKind: SchedulerErrorKind | null = null;
+  const processBlocker = new ProcessBlocker(opts.logger);
+  void processBlocker.verify();
   // Serialize apply() calls. Two concurrent applies would re-render the hosts
   // region with different timestamps and double-write. They'd also race on
   // lastSitesKey/lastErrorKind. Keep it simple: one at a time.
@@ -62,6 +66,7 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
           handleError(err);
           return;
         }
+        await processBlocker.apply([]);
         lastSitesKey = '';
         lastEval = null;
         lastErrorKind = null;
@@ -70,6 +75,9 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
 
       const evalResult = evaluate(cfg, minuteOfDay(new Date()));
       lastEval = evalResult;
+
+      await processBlocker.apply(evalResult.blockedApps);
+
       const key = evalResult.sites.join('|');
 
       // Skip writes only when our memory and the actual hosts file agree. The
@@ -144,11 +152,22 @@ export function startScheduler(opts: SchedulerOpts): SchedulerHandle {
     void apply(opts.getConfig());
   }, opts.tickMs ?? SCHEDULE_TICK_MS);
 
+  const appInterval = setInterval(() => {
+    const cfg = opts.getConfig();
+    if (!cfg) return;
+    const evalResult = evaluate(cfg, minuteOfDay(new Date()));
+    void processBlocker.apply(evalResult.blockedApps);
+  }, opts.appTickMs ?? APP_TICK_MS);
+
   void apply(opts.getConfig());
 
   return {
     apply,
     lastEvaluation: () => lastEval,
-    stop: () => clearInterval(interval),
+    stop: () => {
+      clearInterval(interval);
+      clearInterval(appInterval);
+      processBlocker.stop();
+    },
   };
 }

@@ -17,6 +17,13 @@ const hostname = z
 
 const dayOfWeek = z.number().int().min(0).max(6);
 
+const processName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(260)
+  .regex(/^[a-zA-Z0-9_\-]+\.exe$/i, 'must be a process name ending in .exe (e.g. steam.exe)');
+
 export const siteGroupSchema = z.object({
   id: z.string().min(1),
   name: z.string().trim().min(1).max(80),
@@ -28,7 +35,8 @@ export const scheduleBlockSchema = z.object({
   startMinute: minuteOfDay,
   endMinute: minuteOfDay,
   days: z.array(dayOfWeek).min(1).max(7),
-  siteGroupIds: z.array(z.string().min(1)).min(1),
+  blockApplications: z.boolean().optional(),
+  siteGroupIds: z.array(z.string().min(1)),
 });
 
 export const preferencesSchema = z.object({
@@ -68,6 +76,7 @@ export const blockerConfigSchema = z.object({
   preferences: preferencesSchema,
   hardMode: hardModeSchema,
   stats: statsStateSchema,
+  blockedApplications: z.array(processName).max(500),
   configSequence: z.number().int().nonnegative().optional(),
 });
 

@@ -47,7 +47,7 @@ function resolveServiceScript(filename: string): string | null {
 }
 
 /**
- * Install the FocusBlockerService via UAC elevation.
+ * Install the FrictionService via UAC elevation.
  *
  * Approach: use PowerShell `Start-Process -Verb RunAs` to launch an elevated
  * PowerShell child, then set ELECTRON_RUN_AS_NODE inside that elevated child
@@ -172,7 +172,7 @@ function readFailureLog(logPath?: string): string | null {
 }
 
 /**
- * Probe whether the FocusBlockerService is registered with the SCM. Returns
+ * Probe whether the FrictionService is registered with the SCM. Returns
  * `false` even when the user is not admin — `sc query <name>` only fails for
  * unprivileged users on a non-existent service. For "is it running",
  * we rely on the heartbeat freshness instead.
@@ -182,7 +182,7 @@ export async function isServiceInstalled(): Promise<boolean> {
   return new Promise((resolve) => {
     execFile(
       'sc',
-      ['query', 'FocusBlockerService'],
+      ['query', 'FrictionService'],
       { windowsHide: true, timeout: 5_000 },
       (err) => resolve(!err),
     );

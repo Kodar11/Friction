@@ -10,6 +10,7 @@ import { MilestoneCelebration } from './components/MilestoneCelebration';
 import { WelcomePage } from './pages/Welcome';
 import { DashboardPage } from './pages/Dashboard';
 import { SiteGroupsPage } from './pages/SiteGroups';
+import { ApplicationsPage } from './pages/Applications';
 import { SchedulePage } from './pages/Schedule';
 import { StatsPage } from './pages/Stats';
 import { SettingsPage } from './pages/Settings';
@@ -58,6 +59,7 @@ function App() {
             <div className="max-w-3xl mx-auto px-8 pt-10 pb-16">
               {route === 'dashboard' && <DashboardPage onNavigate={setRoute} />}
               {route === 'groups' && <SiteGroupsPage />}
+              {route === 'apps' && <ApplicationsPage />}
               {route === 'schedule' && <SchedulePage />}
               {route === 'stats' && <StatsPage />}
               {route === 'settings' && <SettingsPage />}

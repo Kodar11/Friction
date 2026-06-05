@@ -20,7 +20,7 @@ export function renderManagedRegion({ hosts, now, activeGroupNames }: RenderArgs
   const summary = activeGroupNames.length > 0 ? activeGroupNames.join(', ') : '(none)';
   const lines: string[] = [
     HOSTS_BEGIN,
-    `# Managed by Focus Blocker. Last updated: ${now}`,
+    `# Managed by Friction. Last updated: ${now}`,
     `# Currently blocking: ${summary}`,
   ];
   for (const h of hosts) {
@@ -75,7 +75,7 @@ export function spliceManaged(
   if (beginIdx >= 0 || endIdx >= 0) {
     // Markers exist but aren't paired correctly. Refuse to mutate; caller can
     // either restore or surface to the user.
-    throw new Error('Hosts file has unpaired focus-blocker markers; refusing to write.');
+    throw new Error('Hosts file has unpaired friction markers; refusing to write.');
   }
 
   if (wantRemove) {

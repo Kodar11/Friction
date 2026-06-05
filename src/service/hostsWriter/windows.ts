@@ -108,7 +108,7 @@ async function readOrEmpty(target: string): Promise<string> {
  */
 async function atomicWrite(target: string, contents: string): Promise<void> {
   const dir = path.dirname(target);
-  const tmp = path.join(dir, `.focus-blocker.${process.pid}.${Date.now()}.tmp`);
+  const tmp = path.join(dir, `.friction.${process.pid}.${Date.now()}.tmp`);
   try {
     await fs.writeFile(tmp, contents, { encoding: 'utf8' });
   } catch (err: any) {

@@ -52,7 +52,7 @@ export function WelcomePage(props: { onDone: () => void }) {
           <Shield size={22} strokeWidth={2.25} />
         </div>
         <h1 className="text-[34px] font-semibold tracking-tight leading-tight">
-          Welcome to Focus Blocker
+          Welcome to Friction
         </h1>
         <p className="text-[15px] text-muted mt-3 leading-relaxed">
           Define site groups and a daily schedule. When a window starts, the listed sites
@@ -133,7 +133,7 @@ export function WelcomePage(props: { onDone: () => void }) {
           style={{ border: '1px solid var(--border)' }}
         >
           <div>
-            <div className="text-[13.5px] font-medium">Open Focus Blocker at sign-in</div>
+            <div className="text-[13.5px] font-medium">Open Friction at sign-in</div>
             <div className="text-[12.5px] text-muted mt-0.5">You can change this any time in Settings.</div>
           </div>
           <input

@@ -17,6 +17,8 @@ export interface ScheduleBlock {
   /** Days of the week this block applies on. 0 = Sunday … 6 = Saturday.
    *  Default is all 7 days (every day). v1 configs are migrated to fill this. */
   days: number[];
+  /** When true, blocked applications are killed during this schedule block. */
+  blockApplications?: boolean;
   siteGroupIds: string[];
 }
 
@@ -65,6 +67,7 @@ export interface BlockerConfig {
   preferences: Preferences;
   hardMode: HardModeSettings;
   stats: StatsState;
+  blockedApplications: string[];
   /** Monotonically increasing sequence number. Incremented on every config save.
    *  The service echoes the last seen value in its heartbeat so the UI can
    *  verify that config changes have propagated. */
@@ -100,6 +103,7 @@ export interface BlockerStatus {
   appVersion: string;
   permissionDenied: boolean;
   currentlyBlocking: { groupId: string; groupName: string }[];
+  currentlyBlockingApps: string[];
   nextChange: { atMinute: number; willBlock: string[] } | null;
   lastError: string | null;
   lastFlushedAt: number | null;
@@ -125,6 +129,8 @@ export interface ScheduleEvaluation {
    *  Note: this only covers same-day boundaries; cross-day transitions are
    *  caught by the 60s scheduler tick. */
   nextChangeAtMinute: number | null;
+  /** Application executable names to kill right now (empty when no block opts in). */
+  blockedApps: string[];
 }
 
 /** A line written to activity.jsonl whenever the runtime's blocking state

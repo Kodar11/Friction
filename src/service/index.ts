@@ -8,19 +8,19 @@ import { startBlockingRuntime } from './runtime.js';
 /**
  * Service entry point. Resolves the userData directory the same way Electron
  * does so the service and the app see the same config.json. Override with
- * FOCUS_BLOCKER_USER_DATA env var for dev/testing.
+ * FRICTION_USER_DATA env var for dev/testing.
  */
 
 function userDataDir(): string {
-  if (process.env.FOCUS_BLOCKER_USER_DATA) return process.env.FOCUS_BLOCKER_USER_DATA;
+  if (process.env.FRICTION_USER_DATA) return process.env.FRICTION_USER_DATA;
   if (process.platform === 'win32') {
     const appData = process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming');
-    return path.join(appData, 'Focus Blocker');
+    return path.join(appData, 'Friction');
   }
   if (process.platform === 'darwin') {
-    return path.join(os.homedir(), 'Library', 'Application Support', 'Focus Blocker');
+    return path.join(os.homedir(), 'Library', 'Application Support', 'Friction');
   }
-  return path.join(os.homedir(), '.config', 'focus-blocker');
+  return path.join(os.homedir(), '.config', 'friction');
 }
 
 async function main() {
@@ -32,7 +32,7 @@ async function main() {
     dir,
     logger,
     configPath: path.join(dir, 'config.json'),
-    hostsPath: process.env.FOCUS_BLOCKER_HOSTS_PATH,
+    hostsPath: process.env.FRICTION_HOSTS_PATH,
   });
 
   logger.info('[SERVICE] Runtime initialized. Blocking engine active.');

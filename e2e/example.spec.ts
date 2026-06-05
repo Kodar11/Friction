@@ -2,7 +2,7 @@ import { test, expect, _electron } from '@playwright/test';
 
 // Smoke test only — fuller e2e is a post-v1 milestone (PLAN.md §12).
 // We just verify the app launches, the preload bridge is present, and
-// the renderer reaches the Focus Blocker shell.
+// the renderer reaches the Friction shell.
 
 let electronApp: Awaited<ReturnType<typeof _electron.launch>>;
 let mainPage: Awaited<ReturnType<typeof electronApp.firstWindow>>;
@@ -33,7 +33,7 @@ test.afterEach(async () => {
 });
 
 test('app exposes the blocker bridge and renders the header', async () => {
-  await expect(mainPage.locator('text=Focus Blocker')).toBeVisible();
+  await expect(mainPage.locator('text=Friction')).toBeVisible();
   const cfg = await mainPage.evaluate(async () => (window as any).blocker.getConfig());
   expect(cfg.version).toBe(1);
 });

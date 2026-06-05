@@ -8,10 +8,10 @@ import { flushDns } from './dnsFlush.js';
   try {
     const removed = await removeManagedRegion();
     if (removed) {
-      console.log('Cleared focus-blocker region from hosts file.');
+      console.log('Cleared friction region from hosts file.');
       await flushDns();
     } else {
-      console.log('No focus-blocker region present.');
+      console.log('No friction region present.');
     }
   } catch (err: any) {
     console.error('Cleanup failed:', err?.message ?? err);

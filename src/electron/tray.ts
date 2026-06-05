@@ -15,11 +15,11 @@ export function createTray(mainWindow: BrowserWindow) {
     ),
   );
 
-  tray.setToolTip('Focus Blocker');
+  tray.setToolTip('Friction');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: 'Show Focus Blocker',
+        label: 'Show Friction',
         click: () => {
           mainWindow.show();
           if (app.dock) app.dock.show();
@@ -34,7 +34,7 @@ export function createTray(mainWindow: BrowserWindow) {
             buttons: ['Quit', 'Cancel'],
             defaultId: 1,
             cancelId: 1,
-            title: 'Quit Focus Blocker?',
+            title: 'Quit Friction?',
             message: 'Quitting closes the app window. Blocking will continue in the background as long as the service is running.',
           });
           if (response === 0) app.quit();

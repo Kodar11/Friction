@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-// Installs Focus Blocker as an auto-start Windows Service. Runs elevated.
+// Installs Friction as an auto-start Windows Service. Runs elevated.
 //
 // Critical detail: the installed service runs as LocalSystem, whose
 // %APPDATA% is `C:\Windows\System32\config\systemprofile\...` — NOT the
 // real user's roaming dir. We pin the service to the *user's* userData via
-// FOCUS_BLOCKER_USER_DATA so it sees the same config.json the app writes.
+// FRICTION_USER_DATA so it sees the same config.json the app writes.
 //
 // If a previous version is registered, we uninstall+reinstall so the env
 // var is actually updated.
@@ -27,8 +27,8 @@ if (!isAdmin()) {
   process.exit(3);
 }
 
-const SERVICE_NAME = 'FocusBlockerService';
-const SERVICE_DISPLAY_NAME = 'Focus Blocker Service';
+const SERVICE_NAME = 'FrictionService';
+const SERVICE_DISPLAY_NAME = 'Friction Service';
 
 const args = parseArgs(process.argv.slice(2));
 setupLog(args.logFile);
@@ -37,7 +37,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const serviceScript = path.join(repoRoot, 'dist-electron', 'service', 'index.js');
 const electronOrNodeExe = args.execPath || process.execPath;
 const userAppData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-const userDataPath = args.userData || path.join(userAppData, 'Focus Blocker');
+const userDataPath = args.userData || path.join(userAppData, 'Friction');
 
 if (!fs.existsSync(serviceScript)) {
   console.error('Service script not found:', serviceScript);
@@ -47,7 +47,7 @@ if (!fs.existsSync(serviceScript)) {
 
 console.log(`User data path for service: ${userDataPath}`);
 
-const env = [{ name: 'FOCUS_BLOCKER_USER_DATA', value: userDataPath }];
+const env = [{ name: 'FRICTION_USER_DATA', value: userDataPath }];
 if (path.basename(electronOrNodeExe).toLowerCase() !== 'node.exe') {
   env.push({ name: 'ELECTRON_RUN_AS_NODE', value: '1' });
 }
@@ -55,7 +55,7 @@ if (path.basename(electronOrNodeExe).toLowerCase() !== 'node.exe') {
 const svc = new Service({
   name: SERVICE_NAME,
   displayName: SERVICE_DISPLAY_NAME,
-  description: 'Focus Blocker — schedules website blocking via the hosts file.',
+  description: 'Friction — schedules website blocking via the hosts file.',
   script: serviceScript,
   execPath: electronOrNodeExe,
   env,
@@ -86,7 +86,7 @@ svc.on('uninstall', () => {
 });
 
 svc.on('start', () => {
-  console.log('FocusBlockerService is running.');
+  console.log('FrictionService is running.');
   // Block the parent PowerShell `-Wait` until we're actually up.
   process.exit(0);
 });

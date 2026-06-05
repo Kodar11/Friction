@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Clock, Pencil, Trash2 } from 'lucide-react';
+import { Clock, Pencil, Trash2, Monitor } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { Timeline } from '../components/Timeline';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -27,6 +27,7 @@ export function SchedulePage() {
       // v2 default: every day. Day chips UI in the editor lets the user
       // narrow this in a follow-up turn.
       days: [0, 1, 2, 3, 4, 5, 6],
+      blockApplications: true,
       siteGroupIds: groupId ? [groupId] : [],
     });
   };
@@ -40,6 +41,7 @@ export function SchedulePage() {
       startMinute: b.startMinute,
       endMinute: b.endMinute,
       days: [...b.days],
+      blockApplications: !!b.blockApplications,
       siteGroupIds: [...b.siteGroupIds],
     });
   };
@@ -54,6 +56,7 @@ export function SchedulePage() {
             startMinute: e.startMinute,
             endMinute: e.endMinute,
             days: e.days,
+            blockApplications: e.blockApplications,
             siteGroupIds: e.siteGroupIds,
           };
         }
@@ -63,6 +66,7 @@ export function SchedulePage() {
           startMinute: e.startMinute,
           endMinute: e.endMinute,
           days: e.days,
+          blockApplications: e.blockApplications,
           siteGroupIds: e.siteGroupIds,
         });
       }
@@ -135,6 +139,7 @@ interface EditCreate {
   startMinute: number;
   endMinute: number;
   days: number[];
+  blockApplications: boolean;
   siteGroupIds: string[];
 }
 interface EditEdit {
@@ -143,6 +148,7 @@ interface EditEdit {
   startMinute: number;
   endMinute: number;
   days: number[];
+  blockApplications: boolean;
   siteGroupIds: string[];
 }
 type EditState = EditCreate | EditEdit;
@@ -172,7 +178,13 @@ function BlockList(props: { config: BlockerConfig; onEdit: (id: string) => void;
                 )}
               </div>
               <div className="text-[12.5px] text-muted mt-0.5">
-                {b.siteGroupIds.map(groupName).join(', ') || '(no groups)'}
+                {b.siteGroupIds.length > 0 ? b.siteGroupIds.map(groupName).join(', ') : '(no groups)'}
+                {b.blockApplications && (
+                  <span className="inline-flex items-center gap-1 ml-2">
+                    <Monitor size={11} />
+                    <span className="text-[11px]">+ apps</span>
+                  </span>
+                )}
                 {b.days.length < 7 && (
                   <span className="text-faint"> · {dayChipSummary(b.days)}</span>
                 )}
@@ -198,7 +210,7 @@ function BlockEditor(props: {
 }) {
   const { state, groups, onChange, onSave, onCancel, onDelete } = props;
   const valid = useMemo(
-    () => state.siteGroupIds.length > 0 && state.startMinute !== state.endMinute,
+    () => (state.siteGroupIds.length > 0 || state.blockApplications) && state.startMinute !== state.endMinute,
     [state],
   );
 
@@ -261,6 +273,27 @@ function BlockEditor(props: {
               </ul>
             )}
           </div>
+
+          <div
+            onClick={() => setField('blockApplications', !state.blockApplications)}
+            className="flex items-center gap-3 px-2 py-2.5 rounded-md cursor-pointer transition-colors"
+            style={{ background: state.blockApplications ? 'var(--bg-active)' : 'transparent' }}
+          >
+            <input
+              type="checkbox"
+              checked={state.blockApplications}
+              onChange={() => setField('blockApplications', !state.blockApplications)}
+            />
+            <div className="flex items-center gap-1.5">
+              <Monitor size={13} className="text-muted" />
+              <span className="text-[13.5px] font-medium">Block applications</span>
+            </div>
+          </div>
+          {state.blockApplications && (
+            <p className="text-[11.5px] text-muted -mt-1 ml-7">
+              Kill blocked applications during this schedule block.
+            </p>
+          )}
         </div>
         <div className="divider" />
         <div className="card-section py-3 flex justify-between">

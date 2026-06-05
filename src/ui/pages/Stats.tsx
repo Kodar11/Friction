@@ -233,7 +233,7 @@ function FreshEmptyState() {
         <div>
           <div className="text-[14.5px] font-semibold">Stats start when blocking does</div>
           <p className="text-[12.5px] text-muted mt-1 leading-relaxed">
-            Activate Focus Blocker and let your first scheduled window pass — adherence, time saved,
+            Activate Friction and let your first scheduled window pass — adherence, time saved,
             and the heatmap fill in once the runtime logs activity. The streak counts a day if
             blocking covered ≥80% of the time you scheduled it.
           </p>

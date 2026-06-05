@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, AlertCircle, Flame, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2 } from 'lucide-react';
+import { ArrowRight, AlertCircle, Flame, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2, Monitor } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { useStatus } from '../hooks/useStatus';
 import { useServiceState } from '../hooks/useServiceState';
@@ -78,8 +78,9 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
   };
 
   const blocking = status?.currentlyBlocking ?? [];
+  const blockingApps = status?.currentlyBlockingApps ?? [];
   const isActive = config.active;
-  const inWindow = blocking.length > 0;
+  const inWindow = blocking.length > 0 || blockingApps.length > 0;
   const totalSites = config.siteGroups.reduce((n, g) => n + g.sites.length, 0);
 
   return (
@@ -120,9 +121,13 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
               </div>
               <div className="text-[13.5px] text-muted mt-1">
                 {inWindow
-                  ? `Currently blocking ${blocking.map((g) => g.groupName).join(', ')}.`
+                  ? blocking.length > 0 && blockingApps.length > 0
+                    ? `Blocking ${blocking.map((g) => g.groupName).join(', ')} and ${blockingApps.length} app${blockingApps.length === 1 ? '' : 's'}.`
+                    : blocking.length > 0
+                      ? `Currently blocking ${blocking.map((g) => g.groupName).join(', ')}.`
+                      : `Blocking ${blockingApps.length} app${blockingApps.length === 1 ? '' : 's'}.`
                   : isActive
-                    ? 'No groups are scheduled at this minute. Sites are reachable.'
+                    ? 'No groups or apps are scheduled at this minute.'
                     : 'Activate to start enforcing your schedule.'}
               </div>
               <NextChange status={status} />
@@ -168,13 +173,20 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
       </section>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <QuickCard
           Icon={Layers}
           label="Site groups"
           value={`${config.siteGroups.length}`}
           subtitle={`${totalSites} site${totalSites === 1 ? '' : 's'} total`}
           onClick={() => props.onNavigate('groups')}
+        />
+        <QuickCard
+          Icon={Monitor}
+          label="Applications"
+          value={`${(config.blockedApplications ?? []).length}`}
+          subtitle={(config.blockedApplications ?? []).length === 0 ? 'Add apps to block' : 'Configured'}
+          onClick={() => props.onNavigate('apps')}
         />
         <QuickCard
           Icon={CalendarClock}
@@ -427,7 +439,7 @@ function ServiceInstallBanner() {
             Install the background service to enable blocking
           </div>
           <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: 'var(--warning)', opacity: 0.85 }}>
-            Focus Blocker uses a Windows Service to edit{' '}
+            Friction uses a Windows Service to edit{' '}
             <code className="kbd">C:\Windows\System32\drivers\etc\hosts</code>. You only need to
             approve the UAC prompt once during install — after that the service starts
             automatically on boot and keeps blocking even when this window is closed.

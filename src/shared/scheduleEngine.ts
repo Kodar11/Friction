@@ -26,6 +26,7 @@ export function evaluate(
       sites: [],
       activeGroups: [],
       nextChangeAtMinute: null,
+      blockedApps: [],
     };
   }
 
@@ -49,10 +50,16 @@ export function evaluate(
     [...activeGroupIds].flatMap((id) => groupById.get(id)?.sites ?? []),
   );
 
+  const shouldBlockApps = config.scheduleBlocks.some(
+    (block) => block.blockApplications && isBlockActiveOn(block, dow, minute),
+  );
+  const blockedApps = shouldBlockApps ? [...(config.blockedApplications ?? [])] : [];
+
   return {
     sites,
     activeGroups,
     nextChangeAtMinute: nextChangeAt(config, minute, dow),
+    blockedApps,
   };
 }
 

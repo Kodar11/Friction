@@ -387,6 +387,7 @@ async function computeStatus(store: ConfigStore, heartbeat: HeartbeatReader): Pr
     appVersion,
     permissionDenied,
     currentlyBlocking: ev.activeGroups,
+    currentlyBlockingApps: ev.blockedApps,
     nextChange: ev.nextChangeAtMinute === null
       ? null
       : { atMinute: ev.nextChangeAtMinute, willBlock: [] },

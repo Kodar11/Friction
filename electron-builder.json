@@ -1,6 +1,6 @@
 {
-  "appId": "com.tanmaychavan.focusblocker",
-  "productName": "Focus Blocker",
+  "appId": "com.tanmaychavan.friction",
+  "productName": "Friction",
   "files": ["dist-electron", "dist-react"],
   "asar": true,
   "asarUnpack": ["dist-electron/**", "node_modules/node-windows/**"],

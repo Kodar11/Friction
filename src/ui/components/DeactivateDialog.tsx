@@ -32,7 +32,7 @@ export function DeactivateDialog(props: Props) {
   if (props.flow === 'needs-phrase') {
     return (
       <PhraseFlow
-        phrase={props.requiredPhrase ?? 'DEACTIVATE FOCUS BLOCKER'}
+        phrase={props.requiredPhrase ?? 'DEACTIVATE FRICTION'}
         onComplete={() => props.onComplete(null)}
         onCancel={() => props.onCancel(null)}
       />

@@ -14,11 +14,11 @@ Your architecture is already solid. This plan focuses on hardening the service l
 
 ### New Flow
 ```
-1. sc query FocusBlockerService → check if exists
+1. sc query FrictionService → check if exists
 2. If exists:
-   a. sc stop FocusBlockerService
+   a. sc stop FrictionService
    b. Wait 3 seconds
-   c. sc delete FocusBlockerService
+   c. sc delete FrictionService
    d. Wait 3 seconds
 3. Install fresh via node-windows
 4. Start service
@@ -130,7 +130,7 @@ Run the 5 tests programmatically:
    - Verify within 10s
 
 4. **No duplicate services**
-   - `sc query FocusBlockerService`
+   - `sc query FrictionService`
    - Parse output for single instance
 
 5. **Permission validation**
@@ -139,7 +139,7 @@ Run the 5 tests programmatically:
    - Verify service handles hosts writes
 
 ### Output
-Write results to `AppData/FocusBlocker/logs/self-test-results.json`
+Write results to `AppData/Friction/logs/self-test-results.json`
 
 ---
 
@@ -161,10 +161,10 @@ After implementation:
 
 - [ ] `npm run transpile:electron` succeeds
 - [ ] `npm run service:install` completes without errors
-- [ ] `sc query FocusBlockerService` shows RUNNING
+- [ ] `sc query FrictionService` shows RUNNING
 - [ ] Close Electron → wait 2 min → hosts file still updates
 - [ ] Change schedule in UI → hosts updates within 60s
-- [ ] `sc query FocusBlockerService` shows single instance
+- [ ] `sc query FrictionService` shows single instance
 - [ ] UI runs without admin, service handles blocking
 - [ ] Logs show `[UI]` and `[SERVICE]` prefixes
 - [ ] Heartbeat includes uptime and config sync timestamps

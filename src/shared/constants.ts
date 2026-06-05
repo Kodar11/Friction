@@ -1,8 +1,8 @@
-export const APP_ID = 'focus-blocker';
-export const SERVICE_NAME = 'FocusBlockerService';
+export const APP_ID = 'friction';
+export const SERVICE_NAME = 'FrictionService';
 
-export const HOSTS_BEGIN = '# === focus-blocker BEGIN === DO NOT EDIT';
-export const HOSTS_END = '# === focus-blocker END ===';
+export const HOSTS_BEGIN = '# === friction BEGIN === DO NOT EDIT';
+export const HOSTS_END = '# === friction END ===';
 export const REDIRECT_IP = '127.0.0.1';
 
 export const SCHEDULE_TICK_MS = 60_000;
@@ -10,7 +10,7 @@ export const CONFIG_FILENAME = 'config.json';
 export const CONFIG_BACKUP_V1 = 'config.json.v1.bak';
 export const STATUS_FILENAME = 'status.json';
 export const ACTIVITY_FILENAME = 'activity.jsonl';
-export const LOG_FILENAME = 'focus-blocker.log';
+export const LOG_FILENAME = 'friction.log';
 
 /** A status file written more recently than this is considered "live". */
 export const HEARTBEAT_FRESHNESS_MS = 2.5 * 60_000;
@@ -37,6 +37,7 @@ export function defaultConfig(socialId: string, blockId: string): import('./type
         startMinute: 22 * 60,
         endMinute: 8 * 60,
         days: [0, 1, 2, 3, 4, 5, 6],
+        blockApplications: true,
         siteGroupIds: [socialId],
       },
     ],
@@ -54,5 +55,6 @@ export function defaultConfig(socialId: string, blockId: string): import('./type
       lastActiveDate: null,
       deactivationLog: [],
     },
+    blockedApplications: [],
   };
 }

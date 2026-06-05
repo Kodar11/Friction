@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(npx vitest run 2>&1)"
-    ]
-  }
-}

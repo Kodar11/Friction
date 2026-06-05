@@ -13,6 +13,7 @@ interface ScheduleBlock {
   endMinute: number;
   /** Days of the week, 0=Sun … 6=Sat. v1 migration fills this with [0..6]. */
   days: number[];
+  blockApplications?: boolean;
   siteGroupIds: string[];
 }
 
@@ -53,6 +54,7 @@ interface BlockerConfig {
   preferences: Preferences;
   hardMode: HardModeSettings;
   stats: StatsState;
+  blockedApplications: string[];
 }
 
 interface BlockerStatus {
@@ -63,6 +65,7 @@ interface BlockerStatus {
   appVersion: string;
   permissionDenied: boolean;
   currentlyBlocking: { groupId: string; groupName: string }[];
+  currentlyBlockingApps: string[];
   nextChange: { atMinute: number; willBlock: string[] } | null;
   lastError: string | null;
   lastFlushedAt: number | null;

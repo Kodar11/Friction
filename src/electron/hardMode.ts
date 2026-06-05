@@ -25,7 +25,7 @@ export type DeactivateRequestResult =
   | 'needs-countdown'
   | 'blocked';
 
-export const REQUIRED_PHRASE = 'DEACTIVATE FOCUS BLOCKER';
+export const REQUIRED_PHRASE = 'DEACTIVATE FRICTION';
 export const HARD_COUNTDOWN_MS = 5 * 60_000;
 
 export interface DeactivateRequest {

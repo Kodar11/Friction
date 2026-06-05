@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-// Self-test / validation script for Focus Blocker service architecture.
+// Self-test / validation script for Friction service architecture.
 //
 // Run: node dist-electron/service/selfTest.js
 //
@@ -17,15 +17,15 @@ const path = require('path');
 const os = require('os');
 const cp = require('child_process');
 
-const SERVICE_NAME = 'FocusBlockerService';
+const SERVICE_NAME = 'FrictionService';
 const CONFIG_FILENAME = 'config.json';
 const STATUS_FILENAME = 'status.json';
 const HOSTS_PATH = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
-const HOSTS_BEGIN = '# === focus-blocker BEGIN === DO NOT EDIT';
-const HOSTS_END = '# === focus-blocker END ===';
+const HOSTS_BEGIN = '# === friction BEGIN === DO NOT EDIT';
+const HOSTS_END = '# === friction END ===';
 
 const userAppData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-const userDataPath = process.env.FOCUS_BLOCKER_USER_DATA || path.join(userAppData, 'Focus Blocker');
+const userDataPath = process.env.FRICTION_USER_DATA || path.join(userAppData, 'Friction');
 const configPath = path.join(userDataPath, CONFIG_FILENAME);
 const statusPath = path.join(userDataPath, STATUS_FILENAME);
 
@@ -68,7 +68,7 @@ function testServiceRegistered() {
       encoding: 'utf8',
     });
     if (result.status === 0) {
-      recordTest('Service registered', 'pass', 'FocusBlockerService found in SCM');
+      recordTest('Service registered', 'pass', 'FrictionService found in SCM');
       return true;
     } else {
       recordTest('Service registered', 'fail', 'Service not found in SCM');
@@ -280,7 +280,7 @@ function testHostsMarkers() {
 async function main() {
   console.log('');
   console.log('========================================');
-  console.log('  Focus Blocker — Architecture Self-Test');
+  console.log('  Friction — Architecture Self-Test');
   console.log('========================================');
   console.log(`  Timestamp: ${results.timestamp}`);
   console.log(`  User data: ${userDataPath}`);

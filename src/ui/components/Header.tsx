@@ -19,7 +19,7 @@ export function Header({ sidebarOpen, onToggleSidebar, showSidebarToggle }: Prop
             {sidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
           </IconButton>
         )}
-        <span className="px-1.5 text-[12.5px] text-muted select-none">Focus Blocker</span>
+        <span className="px-1.5 text-[12.5px] text-muted select-none">Friction</span>
       </div>
 
       <div className="app-frame-no-drag flex items-center gap-2">

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
-// Uninstalls FocusBlockerService and clears the managed hosts-file region.
+// Uninstalls FrictionService and clears the managed hosts-file region.
 // Must be run as Administrator.
 
 const path = require('path');
@@ -11,8 +11,8 @@ if (process.platform !== 'win32') {
   process.exit(1);
 }
 
-const SERVICE_NAME = 'FocusBlockerService';
-const SERVICE_ID = 'focusblockerservice';
+const SERVICE_NAME = 'FrictionService';
+const SERVICE_ID = 'frictionservice';
 
 const args = parseArgs(process.argv.slice(2));
 setupLog(args.logFile);
@@ -20,7 +20,7 @@ setupLog(args.logFile);
 const repoRoot = path.resolve(__dirname, '..', '..');
 const cleanupPath = path.join(repoRoot, 'dist-electron', 'service', 'cleanup.js');
 const programData = process.env.ProgramData || path.join(process.env.SystemDrive || 'C:', 'ProgramData');
-const serviceDir = path.join(programData, 'Focus Blocker', 'service');
+const serviceDir = path.join(programData, 'Friction', 'service');
 const serviceExe = path.join(serviceDir, `${SERVICE_ID}.exe`);
 
 if (serviceExists()) {
@@ -34,7 +34,7 @@ if (serviceExists()) {
 }
 
 runCleanup();
-console.log('FocusBlockerService is uninstalled.');
+console.log('FrictionService is uninstalled.');
 process.exit(0);
 
 function runCleanup() {
@@ -48,7 +48,7 @@ function runCleanup() {
     env.ELECTRON_RUN_AS_NODE = '1';
   }
   if (args.userData) {
-    env.FOCUS_BLOCKER_USER_DATA = args.userData;
+    env.FRICTION_USER_DATA = args.userData;
   }
 
   const child = cp.spawnSync(process.execPath, [cleanupPath], {

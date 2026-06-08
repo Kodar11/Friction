@@ -69,8 +69,24 @@ export class ConfigStore {
   }
 
   async readOrInitDefault(): Promise<BlockerConfig> {
-    const existing = await this.readIfExists();
-    if (existing) return existing;
+    try {
+      const existing = await this.readIfExists();
+      if (existing) return existing;
+    } catch (err: any) {
+      console.error(`[ConfigStore] Failed to read config.json, resetting to defaults: ${err?.message ?? err}`);
+      try {
+        const backup = this.backupPath();
+        await fsp.rename(this.file, this.file + '.corrupt').catch(() => {});
+        try {
+          await fsp.access(backup);
+          console.error(`[ConfigStore] A v1 backup exists at ${backup}. The corrupt file has been preserved.`);
+        } catch {
+          // no backup
+        }
+      } catch {
+        // best effort cleanup
+      }
+    }
     const fresh = defaultConfig(uuid(), uuid());
     fresh.scheduleBlocks[0].siteGroupIds = [fresh.siteGroups[0].id];
     await this.write(fresh);

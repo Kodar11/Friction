@@ -87,6 +87,11 @@ export function Heatmap({ cells }: Props) {
                   return (
                     <div
                       key={key}
+                      role="gridcell"
+                      aria-label={`${formatDate(cell.date)}: ${labelFor(cell.intensity)}`}
+                      tabIndex={-1}
+                      onFocus={() => setHover(cell)}
+                      onBlur={() => setHover(null)}
                       onMouseEnter={() => setHover(cell)}
                       onMouseLeave={() => setHover(null)}
                       className="rounded-[2px] transition-opacity"
@@ -97,7 +102,6 @@ export function Heatmap({ cells }: Props) {
                         outline: '1px solid var(--heatmap-border)',
                         outlineOffset: -1,
                       }}
-                      title={`${cell.date} · ${labelFor(cell.intensity)}`}
                     />
                   );
                 }),

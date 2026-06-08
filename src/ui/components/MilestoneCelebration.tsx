@@ -44,6 +44,8 @@ function Toast(props: { milestone: Milestone; onDismiss: () => void }) {
   return (
     <div
       className="fixed z-50 right-5 bottom-5 max-w-sm cursor-pointer"
+      role="alert"
+      aria-live="assertive"
       onClick={props.onDismiss}
     >
       <div
@@ -79,6 +81,9 @@ function FullScreenCelebration(props: { onDismiss: () => void }) {
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label="100-day streak milestone"
       style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(6px)' }}
     >
       <div
@@ -94,7 +99,7 @@ function FullScreenCelebration(props: { onDismiss: () => void }) {
         >
           <Trophy size={28} />
         </div>
-        <h1 className="text-[28px] font-semibold tracking-tight mt-4">100 days.</h1>
+        <h1 className="text-[28px] font-semibold tracking-tight mt-4">100 days</h1>
         <p className="text-[14px] text-muted mt-3 leading-relaxed">
           Three figures. A hundred consecutive days of holding your schedule. Most habits don't
           make it past a week — you've cleared the threshold where this stops being effort and

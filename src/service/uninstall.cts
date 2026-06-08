@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 // Uninstalls FrictionService and clears the managed hosts-file region.
 // Must be run as Administrator.
+//
+// Uses sc.exe directly with the correct internal service ID
+// ("frictionservice.exe") instead of relying on the node-windows daemon
+// wrapper, which may not be on disk at the expected path.
 
 const path = require('path');
 const fs = require('fs');
@@ -11,31 +15,75 @@ if (process.platform !== 'win32') {
   process.exit(1);
 }
 
-const SERVICE_NAME = 'FrictionService';
-const SERVICE_ID = 'frictionservice';
+// node-windows generates the SCM internal name as: name.replace(/[^\w]/gi, '').toLowerCase()
+// "FrictionService" → "frictionservice". The winsw <id> is id + '.exe' = "frictionservice.exe".
+const SERVICE_ID = 'frictionservice.exe';
 
 const args = parseArgs(process.argv.slice(2));
 setupLog(args.logFile);
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const cleanupPath = path.join(repoRoot, 'dist-electron', 'service', 'cleanup.js');
-const programData = process.env.ProgramData || path.join(process.env.SystemDrive || 'C:', 'ProgramData');
-const serviceDir = path.join(programData, 'Friction', 'service');
-const serviceExe = path.join(serviceDir, `${SERVICE_ID}.exe`);
 
 if (serviceExists()) {
-  if (fs.existsSync(serviceExe)) {
-    runAllowFailure(serviceExe, ['stop']);
-    runChecked(serviceExe, ['uninstall'], 'uninstall service');
-  } else {
-    runAllowFailure('sc.exe', ['stop', SERVICE_NAME]);
-    runChecked('sc.exe', ['delete', SERVICE_NAME], 'delete service');
+  forceStopService();
+  deleteService();
+
+  // Poll until SCM confirms the service is gone (up to 15s).
+  const removed = pollServiceGoneSync(15_000);
+  if (!removed) {
+    console.warn('Timed out waiting for SCM to remove the service. Proceeding with cleanup anyway.');
   }
+} else {
+  console.log('Service not found in SCM — nothing to remove.');
 }
 
 runCleanup();
 console.log('FrictionService is uninstalled.');
 process.exit(0);
+
+// ---------- Helpers ----------
+
+function serviceExists(): boolean {
+  const r = cp.spawnSync('sc.exe', ['query', SERVICE_ID], { windowsHide: true });
+  return r.status === 0;
+}
+
+function forceStopService(): void {
+  console.log(`Stopping service "${SERVICE_ID}"...`);
+  cp.spawnSync('sc.exe', ['stop', SERVICE_ID], { windowsHide: true, encoding: 'utf8' });
+
+  // Wait up to 10s for the service to report STOPPED.
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const check = cp.spawnSync('sc.exe', ['query', SERVICE_ID], { windowsHide: true, encoding: 'utf8' });
+    const output = (check.stdout || '') + (check.stderr || '');
+    if (output.includes('STOPPED') || output.includes('does not exist')) break;
+    sleepSync(1000);
+  }
+}
+
+function deleteService(): void {
+  console.log(`Deleting service "${SERVICE_ID}" from SCM...`);
+  const r = cp.spawnSync('sc.exe', ['delete', SERVICE_ID], { windowsHide: true, encoding: 'utf8' });
+  if (r.status !== 0) {
+    console.error('sc delete failed:', (r.stderr || '').trim());
+  }
+}
+
+function pollServiceGoneSync(timeoutMs: number): boolean {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (!serviceExists()) return true;
+    sleepSync(1000);
+  }
+  return false;
+}
+
+function sleepSync(ms: number): void {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { /* busy-wait */ }
+}
 
 function runCleanup() {
   if (!fs.existsSync(cleanupPath)) {
@@ -60,30 +108,6 @@ function runCleanup() {
     console.error('Cleanup exited with code', child.status);
     process.exit(child.status || 1);
   }
-}
-
-function serviceExists(): boolean {
-  const r = cp.spawnSync('sc.exe', ['query', SERVICE_NAME], { windowsHide: true });
-  return r.status === 0;
-}
-
-function runChecked(file: string, runArgs: string[], label: string) {
-  const r = cp.spawnSync(file, runArgs, {
-    windowsHide: true,
-    encoding: 'utf8',
-  });
-  if (r.status === 0) return;
-  console.error(`Failed to ${label}.`);
-  if (r.stdout) console.error(r.stdout.trim());
-  if (r.stderr) console.error(r.stderr.trim());
-  process.exit(r.status || 1);
-}
-
-function runAllowFailure(file: string, runArgs: string[]) {
-  cp.spawnSync(file, runArgs, {
-    windowsHide: true,
-    encoding: 'utf8',
-  });
 }
 
 function parseArgs(argv: string[]) {

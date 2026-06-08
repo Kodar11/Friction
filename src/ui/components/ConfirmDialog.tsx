@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface Props {
   open: boolean;
@@ -17,21 +17,25 @@ export function ConfirmDialog(props: Props) {
     confirmLabel = 'Confirm', cancelLabel = 'Cancel',
     destructive, onConfirm, onCancel,
   } = props;
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-      if (e.key === 'Enter') onConfirm();
+      if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
     };
     window.addEventListener('keydown', onKey);
+    cancelRef.current?.focus();
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onConfirm, onCancel]);
+  }, [open, onCancel]);
 
   if (!open) return null;
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-title"
       className="fixed inset-0 z-50 grid place-items-center bg-black/40"
       onClick={onCancel}
     >
@@ -41,12 +45,12 @@ export function ConfirmDialog(props: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="card-section">
-          <h2 className="text-[16px] font-semibold">{title}</h2>
+          <h2 id="confirm-title" className="text-[16px] font-semibold">{title}</h2>
           <p className="text-[13px] text-muted mt-1.5 whitespace-pre-line">{message}</p>
         </div>
         <div className="divider" />
         <div className="card-section py-3 flex justify-end gap-2">
-          <button onClick={onCancel} className="btn">{cancelLabel}</button>
+          <button ref={cancelRef} onClick={onCancel} className="btn">{cancelLabel}</button>
           <button
             onClick={onConfirm}
             className={destructive ? 'btn btn-danger' : 'btn btn-primary'}

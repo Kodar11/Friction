@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, AlertCircle, Flame, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2, Monitor } from 'lucide-react';
+import { ArrowRight, AlertCircle, Flame, Layers, CalendarClock, Clock, Percent, Power, RefreshCw, ShieldCheck, ShieldOff, ShieldAlert, Loader2, Monitor, Plus } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { useStatus } from '../hooks/useStatus';
 import { useServiceState } from '../hooks/useServiceState';
 import { useStats } from '../hooks/useStats';
 import { DeactivateDialog } from '../components/DeactivateDialog';
 import { Timeline } from '../components/Timeline';
+import { PageLoader } from '../components/PageLoader';
+import { fmt, currentMinute } from '../lib/format';
 import type { Route } from '../components/Sidebar';
 
 interface DeactivateDialogState {
@@ -107,6 +109,29 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
           serviceVersion={status.serviceVersion}
           appVersion={status.appVersion}
         />
+      )}
+
+      {config.siteGroups.length === 0 && (
+        <div className="card card-section flex items-center justify-between" style={{ background: 'var(--bg-secondary)' }}>
+          <div>
+            <div className="text-[14.5px] font-medium">Get started: create a site group</div>
+            <p className="text-[12.5px] text-muted mt-0.5">Group the sites you want to block, then assign them to a schedule block.</p>
+          </div>
+          <button onClick={() => props.onNavigate('groups')} className="btn btn-primary shrink-0">
+            <Plus size={14} /> Create group
+          </button>
+        </div>
+      )}
+      {config.siteGroups.length > 0 && config.scheduleBlocks.length === 0 && (
+        <div className="card card-section flex items-center justify-between" style={{ background: 'var(--bg-secondary)' }}>
+          <div>
+            <div className="text-[14.5px] font-medium">Create a schedule block</div>
+            <p className="text-[12.5px] text-muted mt-0.5">You have groups but no schedule blocks yet. Create a block to start blocking.</p>
+          </div>
+          <button onClick={() => props.onNavigate('schedule')} className="btn btn-primary shrink-0">
+            <Plus size={14} /> Add block
+          </button>
+        </div>
       )}
 
       {/* Status hero */}
@@ -212,6 +237,7 @@ export function DashboardPage(props: { onNavigate: (r: Route) => void }) {
         requiredPhrase={dialogState?.requiredPhrase}
         onComplete={onDialogComplete}
         onCancel={onDialogCancel}
+        onNavigate={(r) => props.onNavigate(r as Route)}
       />
     </div>
   );
@@ -235,7 +261,7 @@ function WeekActivity(props: {
           </div>
         </div>
         <div className="divider" />
-        <div className="px-5 py-5 text-[12.5px] text-muted">Loading stats…</div>
+        <div className="px-5 py-5 text-[12.5px] text-muted"><PageLoader text="Loading stats…" /></div>
       </section>
     );
   }
@@ -400,71 +426,25 @@ function StatusIcon(props: { active: boolean; inWindow: boolean }) {
 
 function ServiceInstallBanner() {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const onInstall = async () => {
     setBusy(true);
-    setError(null);
     try {
-      const r = await window.blocker.installService();
-      if (!r.ok) {
-        setError(r.error ?? 'Install failed.');
-        setBusy(false);
-      }
-      // On success, the service is starting. Leaving busy=true so the button
-      // stays in its loading state until the status poll refreshes.
-    } catch (err: any) {
-      setError(err?.message ?? String(err));
+      await window.blocker.installService();
+    } catch {
       setBusy(false);
     }
   };
 
   return (
-    <section
-      className="card overflow-hidden"
-      style={{
-        background: 'var(--warning-soft)',
-        borderColor: 'rgba(217, 115, 13, 0.25)',
-      }}
-    >
-      <div className="card-section flex items-start gap-3">
-        <div
-          className="h-9 w-9 grid place-items-center rounded-lg shrink-0"
-          style={{ background: 'var(--bg)', color: 'var(--warning)' }}
-        >
-          <ShieldAlert size={18} />
-        </div>
-        <div className="flex-1">
-          <div className="text-[14.5px] font-semibold" style={{ color: 'var(--warning)' }}>
-            Install the background service to enable blocking
-          </div>
-          <p className="text-[12.5px] mt-1 leading-relaxed" style={{ color: 'var(--warning)', opacity: 0.85 }}>
-            Friction uses a Windows Service to edit{' '}
-            <code className="kbd">C:\Windows\System32\drivers\etc\hosts</code>. You only need to
-            approve the UAC prompt once during install — after that the service starts
-            automatically on boot and keeps blocking even when this window is closed.
-          </p>
-          {error && (
-            <p className="text-[12px] mt-2" style={{ color: 'var(--danger)' }}>
-              {error}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={onInstall}
-          disabled={busy}
-          className="btn"
-          style={{
-            background: 'var(--warning)',
-            color: '#fff',
-            opacity: busy ? 0.6 : 1,
-          }}
-        >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
-          {busy ? 'Installing…' : 'Install service'}
-        </button>
-      </div>
-    </section>
+    <div className="flex items-center gap-2 px-4 py-2 rounded-md text-[12.5px]" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>
+      <ShieldAlert size={14} className="shrink-0" />
+      <span className="flex-1">Background service not installed — blocking is inactive.</span>
+      <button onClick={onInstall} disabled={busy} className="btn text-[12px] py-1 px-2">
+        {busy ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+        {busy ? 'Installing…' : 'Install'}
+      </button>
+    </div>
   );
 }
 
@@ -602,17 +582,5 @@ function QuickCard(props: {
 }
 
 function Skeleton() {
-  return (
-    <div className="card card-section text-[13px] text-muted">Loading…</div>
-  );
-}
-
-function fmt(m: number) {
-  const h = Math.floor(m / 60).toString().padStart(2, '0');
-  const mm = (m % 60).toString().padStart(2, '0');
-  return `${h}:${mm}`;
-}
-function currentMinute() {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
+  return <PageLoader />;
 }

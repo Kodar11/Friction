@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Clock, Pencil, Trash2, Monitor } from 'lucide-react';
+import { CalendarClock, Layers, Pencil, Plus, Trash2, Monitor } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { Timeline } from '../components/Timeline';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { PageLoader } from '../components/PageLoader';
+import { fmt, currentMinute, dayChipSummary } from '../lib/format';
 import { DayChips } from '../components/DayChips';
+import type { Route } from '../components/Sidebar';
 
-export function SchedulePage() {
+export function SchedulePage(props: { onNavigate?: (r: Route) => void }) {
   const { config, update } = useConfig();
   const [editing, setEditing] = useState<EditState | null>(null);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const [nowMinute, setNowMinute] = useState(currentMinute);
   useEffect(() => {
@@ -16,16 +20,26 @@ export function SchedulePage() {
     return () => clearInterval(t);
   }, []);
 
-  if (!config) return <div className="card card-section text-[13px] text-muted">Loading…</div>;
-
   const onCreateRange = (startMinute: number, endMinute: number) => {
-    const groupId = config.siteGroups[0]?.id;
+    const groupId = config?.siteGroups[0]?.id;
     setEditing({
       kind: 'create',
       startMinute,
       endMinute,
-      // v2 default: every day. Day chips UI in the editor lets the user
-      // narrow this in a follow-up turn.
+      days: [0, 1, 2, 3, 4, 5, 6],
+      blockApplications: true,
+      siteGroupIds: groupId ? [groupId] : [],
+    });
+  };
+
+  const onAddBlock = () => {
+    const now = currentMinute();
+    const rounded = Math.floor(now / 60) * 60;
+    const groupId = config?.siteGroups[0]?.id;
+    setEditing({
+      kind: 'create',
+      startMinute: rounded,
+      endMinute: rounded === 23 * 60 ? 0 : rounded + 60,
       days: [0, 1, 2, 3, 4, 5, 6],
       blockApplications: true,
       siteGroupIds: groupId ? [groupId] : [],
@@ -33,7 +47,7 @@ export function SchedulePage() {
   };
 
   const onSelectBlock = (id: string) => {
-    const b = config.scheduleBlocks.find((x) => x.id === id);
+    const b = config?.scheduleBlocks.find((x) => x.id === id);
     if (!b) return;
     setEditing({
       kind: 'edit',
@@ -72,6 +86,7 @@ export function SchedulePage() {
       }
     });
     setEditing(null);
+    setConfirmDiscard(false);
   };
 
   const deleteBlock = (id: string) => {
@@ -82,6 +97,25 @@ export function SchedulePage() {
     setEditing(null);
   };
 
+  const handleEditorCancel = () => {
+    setEditing(null);
+    setConfirmDiscard(false);
+  };
+
+  const handleBackdropClick = () => {
+    if (!editing) return;
+    const hasChanges = editing.kind === 'create' || (
+      editing.kind === 'edit' && config
+    );
+    if (hasChanges) {
+      setConfirmDiscard(true);
+    } else {
+      setEditing(null);
+    }
+  };
+
+  if (!config) return <PageLoader />;
+
   return (
     <div className="space-y-5">
       <div className="flex items-end justify-between">
@@ -91,7 +125,12 @@ export function SchedulePage() {
             Drag on the timeline to add a block · click an existing block to edit.
           </p>
         </div>
-        <span className="chip text-muted"><Clock size={12} /> Now: {fmt(nowMinute)}</span>
+        <div className="flex items-center gap-2">
+          <button onClick={onAddBlock} className="btn btn-primary">
+            <Plus size={14} /> Add block
+          </button>
+          <span className="chip text-muted"><CalendarClock size={12} /> Now: {fmt(nowMinute)}</span>
+        </div>
       </div>
 
       <div className="card card-section">
@@ -108,6 +147,7 @@ export function SchedulePage() {
         config={config}
         onEdit={onSelectBlock}
         onDelete={(id) => setPendingDelete(id)}
+        onAdd={onAddBlock}
       />
 
       {editing && (
@@ -116,8 +156,9 @@ export function SchedulePage() {
           groups={config.siteGroups}
           onChange={setEditing}
           onSave={() => saveBlock(editing)}
-          onCancel={() => setEditing(null)}
+          onCancel={handleEditorCancel}
           onDelete={editing.kind === 'edit' ? () => setPendingDelete(editing.id) : undefined}
+          onNavigate={props.onNavigate}
         />
       )}
 
@@ -129,6 +170,16 @@ export function SchedulePage() {
         confirmLabel="Delete"
         onConfirm={() => pendingDelete && deleteBlock(pendingDelete)}
         onCancel={() => setPendingDelete(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        title="Discard changes?"
+        message="You have unsaved changes in the block editor. Are you sure you want to close it?"
+        destructive
+        confirmLabel="Discard"
+        onConfirm={() => { setEditing(null); setConfirmDiscard(false); }}
+        onCancel={() => setConfirmDiscard(false)}
       />
     </div>
   );
@@ -153,13 +204,16 @@ interface EditEdit {
 }
 type EditState = EditCreate | EditEdit;
 
-function BlockList(props: { config: BlockerConfig; onEdit: (id: string) => void; onDelete: (id: string) => void }) {
-  const { config } = props;
+function BlockList(props: { config: BlockerConfig; onEdit: (id: string) => void; onDelete: (id: string) => void; onAdd: () => void }) {
+  const { config, onAdd } = props;
   if (config.scheduleBlocks.length === 0) {
     return (
       <div className="card card-section text-center py-8">
         <div className="text-[14px] font-medium">No schedule blocks yet</div>
-        <p className="text-[12.5px] text-muted mt-1">Drag horizontally on the timeline above to create one.</p>
+        <p className="text-[12.5px] text-muted mt-1">Drag on the timeline above or use the button to create one.</p>
+        <div className="mt-3">
+          <button onClick={onAdd} className="btn btn-primary"><Plus size={14} /> Add block</button>
+        </div>
       </div>
     );
   }
@@ -207,8 +261,9 @@ function BlockEditor(props: {
   onSave: () => void;
   onCancel: () => void;
   onDelete?: () => void;
+  onNavigate?: (r: Route) => void;
 }) {
-  const { state, groups, onChange, onSave, onCancel, onDelete } = props;
+  const { state, groups, onChange, onSave, onCancel, onDelete, onNavigate } = props;
   const valid = useMemo(
     () => (state.siteGroupIds.length > 0 || state.blockApplications) && state.startMinute !== state.endMinute,
     [state],
@@ -225,7 +280,7 @@ function BlockEditor(props: {
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40" onClick={props.onNavigate ? undefined : onCancel}>
       <div
         className="card w-full max-w-md"
         style={{ boxShadow: 'var(--shadow-lg)' }}
@@ -252,25 +307,41 @@ function BlockEditor(props: {
           <div>
             <div className="text-[11.5px] uppercase tracking-wide text-muted mb-1.5">Block these groups</div>
             {groups.length === 0 ? (
-              <p className="text-[12.5px] text-muted">No groups exist yet. Create one on the Site groups page first.</p>
+              <div className="text-[12.5px] text-muted">
+                <p>No groups exist yet.</p>
+                {onNavigate ? (
+                  <button onClick={() => onNavigate('groups')} className="btn btn-ghost mt-2 text-[12.5px]">
+                    <Layers size={13} /> Create a group
+                  </button>
+                ) : (
+                  <p className="mt-1">Create one on the Site groups page first.</p>
+                )}
+              </div>
             ) : (
-              <ul className="space-y-1">
-                {groups.map((g) => {
-                  const checked = state.siteGroupIds.includes(g.id);
-                  return (
-                    <li
-                      key={g.id}
-                      onClick={() => toggleGroup(g.id)}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors"
-                      style={{ background: checked ? 'var(--bg-active)' : 'transparent' }}
-                    >
-                      <input type="checkbox" checked={checked} onChange={() => toggleGroup(g.id)} />
-                      <span className="text-[13.5px] font-medium">{g.name}</span>
-                      <span className="text-[12px] text-muted ml-auto">{g.sites.length}</span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <>
+                <ul className="space-y-1">
+                  {groups.map((g) => {
+                    const checked = state.siteGroupIds.includes(g.id);
+                    return (
+                      <li
+                        key={g.id}
+                        onClick={() => toggleGroup(g.id)}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors"
+                        style={{ background: checked ? 'var(--bg-active)' : 'transparent' }}
+                      >
+                        <input type="checkbox" checked={checked} onChange={() => toggleGroup(g.id)} />
+                        <span className="text-[13.5px] font-medium">{g.name}</span>
+                        <span className="text-[12px] text-muted ml-auto">{g.sites.length}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {onNavigate && (
+                  <button onClick={() => onNavigate('groups')} className="text-[12px] text-muted mt-2 inline-flex items-center gap-1 hover:text-default transition-colors">
+                    <Layers size={11} /> Manage groups
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -329,23 +400,4 @@ function TimeField(props: { label: string; value: number; onChange: (m: number) 
       />
     </label>
   );
-}
-
-function fmt(m: number) {
-  const h = Math.floor(m / 60).toString().padStart(2, '0');
-  const mm = (m % 60).toString().padStart(2, '0');
-  return `${h}:${mm}`;
-}
-function dayChipSummary(days: number[]): string {
-  const sorted = [...days].sort();
-  const weekdays = JSON.stringify(sorted) === JSON.stringify([1, 2, 3, 4, 5]);
-  const weekends = JSON.stringify(sorted) === JSON.stringify([0, 6]);
-  if (weekdays) return 'Weekdays';
-  if (weekends) return 'Weekends';
-  const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  return sorted.map((d) => labels[d]).join(', ');
-}
-function currentMinute() {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
 }

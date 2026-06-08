@@ -3,6 +3,8 @@ import { Bug, Download, ExternalLink, FolderOpen, Globe, Loader2, RefreshCw, Rot
 import { useConfig } from '../hooks/useConfig';
 import { useThemeStore, type Theme } from '../store/themeStore';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { PageLoader } from '../components/PageLoader';
+import { fmt } from '../lib/format';
 
 export function SettingsPage() {
   const { config, update } = useConfig();
@@ -27,7 +29,7 @@ export function SettingsPage() {
     };
   }, [showDebug]);
 
-  if (!config) return <div className="card card-section text-[13px] text-muted">Loading…</div>;
+  if (!config) return <PageLoader />;
 
   const setPrefTheme = (theme: Theme) => {
     setTheme(theme);
@@ -132,6 +134,17 @@ export function SettingsPage() {
 
       <ImportExportSection />
 
+      <Section title="Reset">
+        <ToggleRow
+          label="Show welcome screen on next launch"
+          description="Turn this on to see the onboarding walkthrough again."
+          checked={config.preferences.showWelcomeScreen}
+          onChange={async (v) => {
+            await update((draft) => { draft.preferences.showWelcomeScreen = v; });
+          }}
+        />
+      </Section>
+
       <Section title="Logs &amp; debug">
         <div className="flex items-center gap-2">
           <button onClick={() => window.blocker.openLogFolder()} className="btn">
@@ -200,19 +213,26 @@ function HardModeSection(props: {
             <li
               key={opt.id}
               onClick={() => void props.onChange(opt.id)}
-              className="flex items-start gap-3 px-3 py-2.5 rounded-md cursor-pointer transition-colors"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void props.onChange(opt.id); } }}
+              tabIndex={0}
+              role="radio"
+              aria-checked={checked}
+              className="flex items-start gap-3 px-3 py-2.5 rounded-md cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]"
               style={{
                 background: checked ? 'var(--bg-active)' : 'transparent',
                 border: '1px solid ' + (checked ? 'var(--border-strong)' : 'var(--border)'),
               }}
             >
-              <input
-                type="radio"
-                name="hard-mode"
-                checked={checked}
-                readOnly
-                className="mt-1 shrink-0"
-              />
+              <div
+                className="mt-1 h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0"
+                style={{
+                  borderColor: checked ? 'var(--accent)' : 'var(--border)',
+                }}
+              >
+                {checked && (
+                  <div className="h-2 w-2 rounded-full" style={{ background: 'var(--accent)' }} />
+                )}
+              </div>
               <div className="flex-1">
                 <div className="text-[13.5px] font-medium">{opt.title}</div>
                 <div className="text-[12.5px] text-muted mt-0.5">{opt.description}</div>
@@ -427,12 +447,6 @@ function ImportPreviewModal(props: {
       </div>
     </div>
   );
-}
-
-function fmt(m: number): string {
-  const h = Math.floor(m / 60).toString().padStart(2, '0');
-  const mm = (m % 60).toString().padStart(2, '0');
-  return `${h}:${mm}`;
 }
 
 function BrowserDnsButton() {
@@ -650,7 +664,7 @@ function Switch(props: { checked: boolean; onChange: (v: boolean) => void }) {
       <span
         className="absolute top-0.5 h-4 w-4 rounded-full transition-transform"
         style={{
-          background: '#fff',
+          background: 'var(--toggle-thumb, #fff)',
           transform: props.checked ? 'translateX(18px)' : 'translateX(2px)',
           boxShadow: 'var(--shadow-sm)',
         }}

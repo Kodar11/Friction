@@ -5,19 +5,21 @@ interface StatCardProps {
   value: string;
   subtitle?: string;
   Icon?: LucideIcon;
-  /** Optional accent for the icon tile (e.g. 'var(--success)'). */
   accent?: string;
   onClick?: () => void;
 }
 
-/** Reused on Dashboard's stat strip and the Stats page hero block. */
 export function StatCard({ label, value, subtitle, Icon, accent, onClick }: StatCardProps) {
   const interactive = !!onClick;
   const Tag: any = interactive ? 'button' : 'div';
   return (
     <Tag
       onClick={onClick}
-      className={'card text-left p-5 transition-colors ' + (interactive ? '' : '')}
+      aria-label={interactive ? `${label}: ${value}${subtitle ? `, ${subtitle}` : ''}` : undefined}
+      className={
+        'card text-left p-5 transition-colors' +
+        (interactive ? ' cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]' : '')
+      }
       onMouseEnter={
         interactive
           ? (e: any) => ((e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)')

@@ -13,6 +13,8 @@ export function ThemeToggle() {
 
   return (
     <div
+      role="radiogroup"
+      aria-label="Theme"
       className="inline-flex items-center gap-0.5 rounded-md p-0.5"
       style={{ background: 'var(--bg-hover)', border: '1px solid var(--border)' }}
     >
@@ -22,9 +24,11 @@ export function ThemeToggle() {
           <button
             key={id}
             onClick={() => setTheme(id)}
+            role="radio"
+            aria-checked={selected}
             aria-label={label}
             title={label}
-            className="h-7 w-8 inline-flex items-center justify-center rounded-[5px] transition-colors"
+            className="h-7 w-8 inline-flex items-center justify-center rounded-[5px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]"
             style={{
               color: selected ? 'var(--text)' : 'var(--text-muted)',
               background: selected ? 'var(--bg)' : 'transparent',

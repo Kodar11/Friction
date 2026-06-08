@@ -7,6 +7,7 @@ import { useConfig } from './hooks/useConfig';
 import { useStats } from './hooks/useStats';
 import { useMilestone } from './hooks/useMilestone';
 import { MilestoneCelebration } from './components/MilestoneCelebration';
+import { ConfigErrorToast } from './components/ConfigErrorToast';
 import { WelcomePage } from './pages/Welcome';
 import { DashboardPage } from './pages/Dashboard';
 import { SiteGroupsPage } from './pages/SiteGroups';
@@ -35,6 +36,19 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config?.preferences.theme]);
 
+  const PAGE_TITLES: Record<Route, string> = {
+    dashboard: 'Friction — Dashboard',
+    schedule: 'Friction — Schedule',
+    groups: 'Friction — Site Groups',
+    apps: 'Friction — Applications',
+    stats: 'Friction — Stats',
+    settings: 'Friction — Settings',
+  };
+
+  useEffect(() => {
+    document.title = PAGE_TITLES[route] ?? 'Friction';
+  }, [route]);
+
   const showWelcome = config?.preferences.showWelcomeScreen === true;
 
   return (
@@ -58,9 +72,9 @@ function App() {
           <main className="flex-1 min-w-0">
             <div className="max-w-3xl mx-auto px-8 pt-10 pb-16">
               {route === 'dashboard' && <DashboardPage onNavigate={setRoute} />}
-              {route === 'groups' && <SiteGroupsPage />}
-              {route === 'apps' && <ApplicationsPage />}
-              {route === 'schedule' && <SchedulePage />}
+              {route === 'groups' && <SiteGroupsPage onNavigate={setRoute} />}
+              {route === 'apps' && <ApplicationsPage onNavigate={setRoute} />}
+              {route === 'schedule' && <SchedulePage onNavigate={setRoute} />}
               {route === 'stats' && <StatsPage />}
               {route === 'settings' && <SettingsPage />}
             </div>
@@ -68,6 +82,7 @@ function App() {
         </div>
       )}
       <MilestoneCelebration milestone={pendingMilestone} onDismiss={acknowledgeMilestone} />
+      <ConfigErrorToast />
     </div>
   );
 }

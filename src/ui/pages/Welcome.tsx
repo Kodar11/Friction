@@ -44,7 +44,10 @@ export function WelcomePage(props: { onDone: () => void }) {
 
   return (
     <div className="min-h-[calc(100vh-2.5rem)] grid place-items-center px-6 py-10">
-      <div className="w-full max-w-2xl">
+      <a href="#welcome-skip" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1 focus:rounded" style={{ background: 'var(--accent)', color: '#fff' }}>
+        Skip to main content
+      </a>
+      <div id="welcome-skip" className="w-full max-w-2xl">
         <div
           className="h-12 w-12 rounded-xl grid place-items-center mb-6"
           style={{ background: 'var(--text)', color: 'var(--bg)' }}

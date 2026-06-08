@@ -16,33 +16,19 @@ export interface ElevationResult {
  */
 function resolveServiceScript(filename: string): string | null {
   const appPath = app.getAppPath();
-  
-  // In production, scripts are in the app.asar unpacked dist-electron folder
-  const prodPath = path.join(appPath, 'dist-electron', 'service', filename);
-  
-  // In dev mode, dist-electron is at project root
-  const devPath = isDev()
-    ? path.join(process.cwd(), 'dist-electron', 'service', filename)
-    : null;
-  
-  // Try .cjs first (production transpilation), then .js (dev transpilation)
-  const extensions = ['.cjs', '.js'];
-  
-  for (const basePath of [prodPath, devPath].filter(Boolean)) {
-    for (const ext of extensions) {
-      const candidate = basePath!.replace(/\.(cts|cts)$/, ext).replace(/\.cjs$/, ext).replace(/\.js$/, ext);
-      // Try with the exact filename first, then with replaced extension
-      const fullPath = path.join(path.dirname(basePath!), path.basename(filename).replace(/\.(cts|cts)$/, ext));
-      if (fs.existsSync(fullPath)) {
-        return fullPath;
-      }
-    }
+  const dir = 'dist-electron/service';
+
+  const candidates = [
+    path.join(appPath, dir, filename),
+    isDev() ? path.join(process.cwd(), dir, filename) : null,
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+    const alt = candidate.replace(/\.cjs$/, '.js');
+    if (alt !== candidate && fs.existsSync(alt)) return alt;
   }
-  
-  // Fallback: try the original filename as-is
-  if (fs.existsSync(prodPath)) return prodPath;
-  if (devPath && fs.existsSync(devPath)) return devPath;
-  
+
   return null;
 }
 
@@ -172,19 +158,25 @@ function readFailureLog(logPath?: string): string | null {
 }
 
 /**
- * Probe whether the FrictionService is registered with the SCM. Returns
- * `false` even when the user is not admin — `sc query <name>` only fails for
- * unprivileged users on a non-existent service. For "is it running",
- * we rely on the heartbeat freshness instead.
+ * Probe whether the FrictionService is registered with the SCM.
+ *
+ * Uses the correct internal service ID "frictionservice.exe" (node-windows
+ * generates this from the display name "FrictionService" via
+ * name.replace(/[^\w]/gi, '').toLowerCase() + '.exe').
  */
 export async function isServiceInstalled(): Promise<boolean> {
   if (process.platform !== 'win32') return false;
   return new Promise((resolve) => {
     execFile(
       'sc',
-      ['query', 'FrictionService'],
-      { windowsHide: true, timeout: 5_000 },
-      (err) => resolve(!err),
+      ['query', 'frictionservice.exe'],
+      { windowsHide: true, timeout: 5_000, encoding: 'utf8' },
+      (err, stdout) => {
+        if (err) return resolve(false);
+        // sc query may succeed for non-admin users too; confirm the service
+        // name actually appears in the output to avoid false positives.
+        resolve((stdout || '').includes('frictionservice'));
+      },
     );
   });
 }

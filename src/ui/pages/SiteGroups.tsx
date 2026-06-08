@@ -1,22 +1,31 @@
 import { useEffect, useState } from 'react';
-import { Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react';
+import { ArrowRight, Pencil, Plus, Sparkles, Trash2, X } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { PageLoader } from '../components/PageLoader';
+import { uid } from '../lib/format';
 import { PRESETS } from '../components/presets';
 import { parseHost } from '../../shared/parseHost';
+import type { Route } from '../components/Sidebar';
 
-export function SiteGroupsPage() {
+export function SiteGroupsPage(props: { onNavigate?: (r: Route) => void }) {
   const { config, update } = useConfig();
   const [presetOpen, setPresetOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [newlyCreatedId, setNewlyCreatedId] = useState<string | null>(null);
 
-  if (!config) return <div className="card card-section text-[13px] text-muted">Loading…</div>;
+  if (!config) return <PageLoader />;
 
   const addEmptyGroup = () => {
+    const id = uid();
     void update((draft) => {
-      draft.siteGroups.push({ id: uid(), name: 'New group', sites: [] });
+      draft.siteGroups.push({ id, name: 'New group', sites: [] });
     });
+    setNewlyCreatedId(id);
   };
+
+  const hasScheduleBlocks = config.scheduleBlocks.length > 0;
+
   const renameGroup = (id: string, name: string) => {
     void update((draft) => {
       const g = draft.siteGroups.find((x) => x.id === id);
@@ -40,24 +49,46 @@ export function SiteGroupsPage() {
       if (g) g.sites = g.sites.filter((s) => s !== site);
     });
   };
+
+  const getDeleteMessage = (id: string) => {
+    const group = config.siteGroups.find((g) => g.id === id);
+    if (!group) return 'The group and any references to it in your schedule will be removed.';
+    const affectedBlocks = config.scheduleBlocks.filter(
+      (b) => b.siteGroupIds.includes(id) && b.siteGroupIds.filter((gid) => gid !== id).length === 0
+    );
+    const referencedBlocks = config.scheduleBlocks.filter((b) => b.siteGroupIds.includes(id));
+    if (affectedBlocks.length > 0) {
+      return `This will remove "${group.name}" and ${affectedBlocks.length === 1 ? '1 schedule block that only references this group' : `${affectedBlocks.length} schedule blocks that only reference this group`}.`;
+    }
+    if (referencedBlocks.length > 0) {
+      return `This will remove "${group.name}" from ${referencedBlocks.length === 1 ? '1 schedule block' : `${referencedBlocks.length} schedule blocks`}. Those blocks will still keep their other groups.`;
+    }
+    return `This will remove "${group.name}". It is not currently referenced by any schedule blocks.`;
+  };
+
   const removeGroup = (id: string) => {
     void update((draft) => {
       draft.siteGroups = draft.siteGroups.filter((g) => g.id !== id);
       for (const b of draft.scheduleBlocks) {
         b.siteGroupIds = b.siteGroupIds.filter((gid) => gid !== id);
       }
-      draft.scheduleBlocks = draft.scheduleBlocks.filter((b) => b.siteGroupIds.length > 0);
+      draft.scheduleBlocks = draft.scheduleBlocks.filter((b) => b.siteGroupIds.length > 0 || b.blockApplications);
     });
+    setPendingDelete(null);
   };
   const importPresets = (selected: string[]) => {
+    const ids: string[] = [];
     void update((draft) => {
       for (const presetId of selected) {
         const p = PRESETS.find((x) => x.id === presetId);
         if (!p) continue;
-        draft.siteGroups.push({ id: uid(), name: p.name, sites: [...p.sites] });
+        const id = uid();
+        ids.push(id);
+        draft.siteGroups.push({ id, name: p.name, sites: [...p.sites] });
       }
     });
     setPresetOpen(false);
+    if (ids.length > 0) setNewlyCreatedId(ids[ids.length - 1]);
   };
 
   return (
@@ -90,6 +121,26 @@ export function SiteGroupsPage() {
         </div>
       )}
 
+      {newlyCreatedId && !hasScheduleBlocks && config.siteGroups.length > 0 &&
+        config.siteGroups.find((g) => g.id === newlyCreatedId) && (
+        <div
+          className="card card-section flex items-center justify-between"
+          style={{ background: 'var(--success-soft)', borderColor: 'transparent' }}
+        >
+          <div>
+            <div className="text-[13.5px] font-medium">Group created</div>
+            <p className="text-[12.5px] text-muted mt-0.5">Assign it to a schedule block to start blocking.</p>
+          </div>
+          <button
+            onClick={() => { setNewlyCreatedId(null); props.onNavigate?.('schedule'); }}
+            className="btn"
+            style={{ background: 'var(--success)', color: '#fff' }}
+          >
+            <ArrowRight size={14} /> Add to schedule
+          </button>
+        </div>
+      )}
+
       <ul className="space-y-3">
         {config.siteGroups.map((g) => (
           <SiteGroupCard
@@ -110,12 +161,11 @@ export function SiteGroupsPage() {
       <ConfirmDialog
         open={pendingDelete !== null}
         title="Delete this group?"
-        message="The group and any references to it in your schedule will be removed."
+        message={pendingDelete ? getDeleteMessage(pendingDelete) : ''}
         destructive
         confirmLabel="Delete"
         onConfirm={() => {
           if (pendingDelete) removeGroup(pendingDelete);
-          setPendingDelete(null);
         }}
         onCancel={() => setPendingDelete(null)}
       />
@@ -207,7 +257,7 @@ function SiteGroupCard(props: {
             setEditingName(true);
             setNameError(null);
           }}
-          className="btn btn-ghost opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition"
+          className="btn btn-ghost opacity-60 hover:opacity-100 transition"
           title="Rename group"
           aria-label="Rename group"
         >
@@ -217,7 +267,7 @@ function SiteGroupCard(props: {
           <Trash2 size={14} />
         </button>
       </div>
-      {nameError && <div className="px-5 pb-2 text-[12px] text-red-500">{nameError}</div>}
+      {nameError && <div className="px-5 pb-2 text-[12px]" style={{ color: 'var(--danger)' }}>{nameError}</div>}
       <div className="divider" />
       <div className="card-section">
         {group.sites.length > 0 ? (
@@ -259,7 +309,7 @@ function SiteGroupCard(props: {
           />
           <button type="submit" className="btn">Add</button>
         </form>
-        {error && <p className="mt-2 text-[12px] text-red-500">{error}</p>}
+        {error && <p className="mt-2 text-[12px]" style={{ color: 'var(--danger)' }}>{error}</p>}
       </div>
     </li>
   );
@@ -327,8 +377,4 @@ function PresetModal(props: { open: boolean; onClose: () => void; onImport: (ids
       </div>
     </div>
   );
-}
-
-function uid() {
-  return 'g_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }

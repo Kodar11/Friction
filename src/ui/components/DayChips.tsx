@@ -1,16 +1,8 @@
-/**
- * Seven small toggle chips for picking which days of the week a schedule
- * block applies on. 0 = Sunday … 6 = Saturday.
- *
- * Convention matches `ScheduleBlock.days`. All chips selected by default
- * (every day) so the legacy v1 behaviour is preserved unless the user
- * narrows it.
- */
+import { useState } from 'react';
 
 interface Props {
   value: number[];
   onChange: (next: number[]) => void;
-  /** Tiny variant for inline use. */
   compact?: boolean;
 }
 
@@ -18,12 +10,16 @@ const LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function DayChips({ value, onChange, compact }: Props) {
+  const [shakingDay, setShakingDay] = useState<number | null>(null);
+
   const toggle = (i: number) => {
     const set = new Set(value);
     if (set.has(i)) {
-      // Don't let the user end up with zero days — that'd silently neuter
-      // the block. Keep at least one day selected.
-      if (set.size === 1) return;
+      if (set.size === 1) {
+        setShakingDay(i);
+        setTimeout(() => setShakingDay(null), 400);
+        return;
+      }
       set.delete(i);
     } else {
       set.add(i);
@@ -37,23 +33,25 @@ export function DayChips({ value, onChange, compact }: Props) {
 
   return (
     <div>
-      <div className={'flex ' + (compact ? 'gap-1' : 'gap-1.5')}>
+      <div className={'flex ' + (compact ? 'gap-1' : 'gap-1.5')} role="group" aria-label="Days of the week">
         {LABELS.map((label, i) => {
           const on = value.includes(i);
+          const isShaking = shakingDay === i;
           return (
             <button
               key={i}
               onClick={() => toggle(i)}
               aria-label={`${FULL[i]}${on ? ' (selected)' : ''}`}
-              title={FULL[i]}
+              title={value.length === 1 && value[0] === i ? 'At least one day required' : FULL[i]}
               className={
                 (compact ? 'h-6 w-6 text-[11px]' : 'h-7 w-7 text-[12px]') +
-                ' inline-flex items-center justify-center rounded-md font-semibold transition-colors tabular-nums'
+                ' inline-flex items-center justify-center rounded-md font-semibold transition-colors tabular-nums' +
+                (isShaking ? ' animate-[shake_0.4s_ease-in-out]' : '')
               }
               style={{
                 background: on ? 'var(--text)' : 'var(--bg-secondary)',
                 color: on ? 'var(--bg)' : 'var(--text-muted)',
-                border: '1px solid ' + (on ? 'var(--text)' : 'var(--border)'),
+                border: '1px solid ' + (on ? 'var(--text)' : isShaking ? 'var(--danger)' : 'var(--border)'),
               }}
             >
               {label}
@@ -70,6 +68,13 @@ export function DayChips({ value, onChange, compact }: Props) {
           <button onClick={setWeekends} className="hover:text-default transition-colors">Weekends</button>
         </div>
       )}
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-3px); }
+          75% { transform: translateX(3px); }
+        }
+      `}</style>
     </div>
   );
 }

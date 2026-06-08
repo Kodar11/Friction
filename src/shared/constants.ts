@@ -1,5 +1,12 @@
 export const APP_ID = 'friction';
+/** Display name shown in the Windows Services console. */
 export const SERVICE_NAME = 'FrictionService';
+/**
+ * Internal SCM service identifier used by sc.exe commands.
+ * node-windows generates this from the display name:
+ * name.replace(/[^\w]/gi, '').toLowerCase() + '.exe'
+ */
+export const SERVICE_ID = 'frictionservice.exe';
 
 export const HOSTS_BEGIN = '# === friction BEGIN === DO NOT EDIT';
 export const HOSTS_END = '# === friction END ===';
@@ -48,7 +55,7 @@ export function defaultConfig(socialId: string, blockId: string): import('./type
       notificationsEnabled: true,
       weeklySummaryEnabled: true,
     },
-    hardMode: { level: 'light' },
+    hardMode: { level: 'off' },
     stats: {
       currentStreak: 0,
       longestStreak: 0,

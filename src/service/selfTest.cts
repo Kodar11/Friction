@@ -17,7 +17,8 @@ const path = require('path');
 const os = require('os');
 const cp = require('child_process');
 
-const SERVICE_NAME = 'FrictionService';
+const SERVICE_ID = 'frictionservice.exe';
+const SERVICE_DISPLAY_NAME = 'Friction Service';
 const CONFIG_FILENAME = 'config.json';
 const STATUS_FILENAME = 'status.json';
 const HOSTS_PATH = 'C:\\Windows\\System32\\drivers\\etc\\hosts';
@@ -62,13 +63,13 @@ function recordTest(name: string, status: 'pass' | 'fail' | 'warn', detail: stri
  */
 function testServiceRegistered() {
   try {
-    const result = cp.spawnSync('sc', ['query', SERVICE_NAME], {
+    const result = cp.spawnSync('sc', ['query', SERVICE_ID], {
       windowsHide: true,
       timeout: 5000,
       encoding: 'utf8',
     });
     if (result.status === 0) {
-      recordTest('Service registered', 'pass', 'FrictionService found in SCM');
+      recordTest('Service registered', 'pass', `${SERVICE_DISPLAY_NAME} found in SCM`);
       return true;
     } else {
       recordTest('Service registered', 'fail', 'Service not found in SCM');
@@ -85,7 +86,7 @@ function testServiceRegistered() {
  */
 function testServiceRunning() {
   try {
-    const result = cp.spawnSync('sc', ['query', SERVICE_NAME], {
+    const result = cp.spawnSync('sc', ['query', SERVICE_ID], {
       windowsHide: true,
       timeout: 5000,
       encoding: 'utf8',
@@ -218,15 +219,14 @@ function testConfigSync() {
  */
 function testNoDuplicateServices() {
   try {
-    const result = cp.spawnSync('sc', ['query', SERVICE_NAME], {
+    const result = cp.spawnSync('sc', ['query', SERVICE_ID], {
       windowsHide: true,
       timeout: 5000,
       encoding: 'utf8',
     });
     
-    // Count occurrences of SERVICE_NAME in the output
     const output = (result.stdout || '').trim();
-    const matches = output.split(SERVICE_NAME).length - 1;
+    const matches = output.split(SERVICE_ID).length - 1;
     
     if (matches === 1) {
       recordTest('No duplicate services', 'pass', 'Single service instance found');

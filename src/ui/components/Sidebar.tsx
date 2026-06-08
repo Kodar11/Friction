@@ -1,4 +1,5 @@
 import { BarChart3, LayoutDashboard, Layers, CalendarClock, Settings as SettingsIcon, Shield, Monitor, type LucideIcon } from 'lucide-react';
+import { APP_VERSION } from '../lib/version';
 
 export type Route = 'dashboard' | 'groups' | 'apps' | 'schedule' | 'stats' | 'settings';
 
@@ -12,9 +13,9 @@ interface SidebarProps {
 
 const ITEMS: { id: Route; label: string; Icon: LucideIcon }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+  { id: 'schedule', label: 'Schedule', Icon: CalendarClock },
   { id: 'groups', label: 'Site groups', Icon: Layers },
   { id: 'apps', label: 'Applications', Icon: Monitor },
-  { id: 'schedule', label: 'Schedule', Icon: CalendarClock },
   { id: 'stats', label: 'Stats', Icon: BarChart3 },
   { id: 'settings', label: 'Settings', Icon: SettingsIcon },
 ];
@@ -78,7 +79,7 @@ export function Sidebar({ route, onNavigate, active, open }: SidebarProps) {
           })}
         </nav>
 
-        <div className="mt-auto px-3 pb-3 text-[11px] text-faint">v0.1.0</div>
+        <div className="mt-auto px-3 pb-3 text-[11px] text-faint">v{APP_VERSION}</div>
       </div>
     </aside>
   );

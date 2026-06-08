@@ -3,6 +3,7 @@ import { Award, BarChart3, Clock, Flame, Percent, ShieldOff, Trophy } from 'luci
 import { useStats } from '../hooks/useStats';
 import { StatCard } from '../components/StatCard';
 import { Heatmap } from '../components/Heatmap';
+import { PageLoader } from '../components/PageLoader';
 
 export function StatsPage() {
   const { stats, loading, error, refresh } = useStats();
@@ -30,9 +31,7 @@ export function StatsPage() {
             All numbers are computed from your local activity log. Nothing leaves the machine.
           </p>
         </div>
-        <div className="card card-section text-center py-10">
-          <Loading />
-        </div>
+        <PageLoader />
       </div>
     );
   }
@@ -68,9 +67,7 @@ export function StatsPage() {
             All numbers are computed from your local activity log. Nothing leaves the machine.
           </p>
         </div>
-        <div className="card card-section text-center py-10">
-          <Loading />
-        </div>
+        <PageLoader />
       </div>
     );
   }
@@ -206,14 +203,7 @@ export function StatsPage() {
   );
 }
 
-function Loading() {
-  return (
-    <div className="text-[13px] text-muted">
-      <BarChart3 size={20} className="mx-auto mb-2 opacity-60" />
-      Loading stats…
-    </div>
-  );
-}
+
 
 function FreshEmptyState() {
   return (

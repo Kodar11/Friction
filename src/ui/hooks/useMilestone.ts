@@ -66,5 +66,6 @@ export function useMilestone(currentStreak: number | null | undefined): {
 }
 
 export function __resetMilestonesForTests() {
+  if (import.meta.env?.DEV !== true) return;
   try { localStorage.removeItem(STORAGE_KEY); } catch {}
 }

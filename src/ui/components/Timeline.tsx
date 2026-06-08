@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { fmt } from '../lib/format';
 
 interface Props {
   blocks: ScheduleBlock[];
@@ -259,8 +260,3 @@ function colourFor(seed: string): string {
 
 function clamp01(n: number) { return Math.max(0, Math.min(1, n)); }
 function snap(m: number) { return Math.round(m / SNAP_MINUTES) * SNAP_MINUTES; }
-function fmt(m: number) {
-  const h = Math.floor(m / 60).toString().padStart(2, '0');
-  const mm = (m % 60).toString().padStart(2, '0');
-  return `${h}:${mm}`;
-}

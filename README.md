@@ -79,7 +79,7 @@ The name comes from the idea: **μ = ∞** — infinite friction against distrac
 ## How It Works
 
 ```text
-┌─────────────┐
+┌──────────────┐
 │  Electron UI │  ← Configure schedules, groups, preferences
 └──────┬───────┘
        │ config.json changes
@@ -90,13 +90,13 @@ The name comes from the idea: **μ = ∞** — infinite friction against distrac
        │ evaluates schedule every 60s, apps every 5s
        ▼
 ┌──────────────────┐
-│  Schedule Engine  │  ← Determines what should be blocked right now
+│  Schedule Engine │  ← Determines what should be blocked right now
 └──────┬───────────┘
        │
        ▼
 ┌───────────────┬──────────────────┐
-│ Hosts Writer   │  Process Blocker │
-│ (website DNS)  │  (app killing)   │
+│ Hosts Writer  │  Process Blocker │
+│ (website DNS) │  (app killing)   │
 └───────────────┴──────────────────┘
 ```
 
